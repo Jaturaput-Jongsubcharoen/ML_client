@@ -45,116 +45,143 @@ function App() {
   };
 
   return (
-    <div className="container">
+    <div className="container-main">
       <h2>Machine Learning Models</h2>
+      
+        <div className="container">
+        <p><strong>Select Model:</strong></p>
+        <div className="model-buttons">
+          <button onClick={() => setModelName("random_forest")}>Random Forest</button>
+          <button onClick={() => setModelName("svm")}>SVM</button>
+          <button onClick={() => setModelName("neural_network")}>Neural Network</button>
+          <button onClick={() => setModelName("logistic_regression")}>Logistic Regression</button>
+          <button onClick={() => setModelName("linear_regression")}>Linear Regression</button>
+        </div>
 
-      <p><strong>Select Model:</strong></p>
-      <div className="model-buttons">
-        <button onClick={() => setModelName("random_forest")}>Random Forest</button>
-        <button onClick={() => setModelName("svm")}>SVM</button>
-        <button onClick={() => setModelName("neural_network")}>Neural Network</button>
-        <button onClick={() => setModelName("logistic_regression")}>Logistic Regression</button>
-        <button onClick={() => setModelName("linear_regression")}>Linear Regression</button>
+        <h3>Selected Model: <strong>{modelName.replace(/_/g, " ")}</strong></h3>
+        
+        <div className="flex-form">
+          <div className="flex-row">
+            <div className="select-group">
+              <label>Street 1:</label>
+              <select value={street1} onChange={(e) => setStreet1(e.target.value)}>
+                <option value="YONGE ST">YONGE ST</option>
+                <option value="BATHURST ST">BATHURST ST</option>
+                <option value="DUNDAS ST W">DUNDAS ST W</option>
+                <option value="DUFFERIN ST">DUFFERIN ST</option>
+                <option value="EGLINTON AVE E">EGLINTON AVE E</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>Street 2:</label>
+              <select value={street2} onChange={(e) => setStreet2(e.target.value)}>
+                <option value="BATHURST ST">BATHURST ST</option>
+                <option value="LAWRENCE AVE E">LAWRENCE AVE E</option>
+                <option value="YONGE ST">YONGE ST</option>
+                <option value="FINCH AVE E">FINCH AVE E</option>
+                <option value="EGLINTON AVE E">EGLINTON AVE E</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>Offset:</label>
+              <select value={offset} onChange={(e) => setOffset(e.target.value)}>
+                <option value="10 m West of">10 m West of</option>
+                <option value="10 m North o">10 m North o</option>
+                <option value="5 m South of">5 m South of</option>
+                <option value="10 m South o">10 m South o</option>
+                <option value="5 m East of">5 m East of</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>District:</label>
+              <select value={district} onChange={(e) => setDistrict(e.target.value)}>
+                <option value="Toronto and East York">Toronto and East York</option>
+                <option value="North York">North York</option>
+                <option value="Scarborough">Scarborough</option>
+                <option value="Etobicoke York">Etobicoke York</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex-row">       
+            <div className="select-group">
+              <label>Impact Type:</label>
+              <select value={impactype} onChange={(e) => setImpactype(e.target.value)}>
+                <option value="Approaching">Approaching</option>
+                <option value="SMV Other">SMV Other</option>
+                <option value="Pedestrian Collisions">Pedestrian Collisions</option>
+                <option value="Angle">Angle</option>
+                <option value="Turning Movement">Turning Movement</option>
+                <option value="Cyclist Collisions">Cyclist Collisions</option>
+                <option value="Rear End">Rear End</option>
+                <option value="Sideswipe">Sideswipe</option>
+                <option value="SMV Unattended Vehicle">SMV Unattended Vehicle</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>Injury:</label>
+              <select value={injury} onChange={(e) => setInjury(e.target.value)}>
+                <option value="Fatal">Fatal</option>
+                <option value="Major">Major</option>
+                <option value="Minor">Minor</option>
+                <option value="Minimal">Minimal</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>Pedestrian Condition:</label>
+              <select value={pedcond} onChange={(e) => setPedcond(e.target.value)}>
+                <option value="Inattentive">Inattentive</option>
+                <option value="Normal">Normal</option>
+                <option value="Unknown">Unknown</option>
+                <option value="Medical or Physical Disability">Medical or Physical Disability</option>
+                <option value="Had Been Drinking">Had Been Drinking</option>
+                <option value="Ability Impaired, Alcohol">Ability Impaired, Alcohol</option>
+                <option value="Other">Other</option>
+                <option value="Ability Impaired, Alcohol Over .80">Ability Impaired, Alcohol Over .80</option>
+                <option value="Ability Impaired, Drugs">Ability Impaired, Drugs</option>
+                <option value="Fatigue">Fatigue</option>
+              </select>
+            </div>
+
+            <div className="select-group">
+              <label>Driver Condition:</label>
+              <select value={drivcond} onChange={(e) => setDrivcond(e.target.value)}>
+                <option value="Normal">Normal</option>
+                <option value="Ability Impaired, Alcohol Over .08">Ability Impaired, Alcohol Over .08</option>
+                <option value="Inattentive">Inattentive</option>
+                <option value="Unknown">Unknown</option>
+                <option value="Medical or Physical Disability">Medical or Physical Disability</option>
+                <option value="Had Been Drinking">Had Been Drinking</option>
+                <option value="Fatigue">Fatigue</option>
+                <option value="Other">Other</option>
+                <option value="Ability Impaired, Alcohol">Ability Impaired, Alcohol</option>
+                <option value="Ability Impaired, Drugs">Ability Impaired, Drugs</option>
+              </select>
+            </div>
+          </div> 
+        </div>
+
+        <br />
+        <button className="predict-btn" onClick={handlePredict}>
+          Predict
+        </button>
+
+        {prediction !== null && (
+          <div className="prediction-result">
+            <strong>Prediction Result:</strong>{" "}
+            <span className="prediction-value">
+              {prediction === 1 ? "Fatal (1)" : prediction === 0 ? "Non-Fatal (0)" : prediction}
+            </span>
+          </div>
+        )}
+        
       </div>
-
-      <p><strong>Selected Model:</strong> {modelName.replace(/_/g, " ").toUpperCase()}</p>
-
-      <label>Street 1:</label>
-      <select value={street1} onChange={(e) => setStreet1(e.target.value)}>
-        <option value="YONGE ST">YONGE ST</option>
-        <option value="BATHURST ST">BATHURST ST</option>
-        <option value="DUNDAS ST W">DUNDAS ST W</option>
-        <option value="DUFFERIN ST">DUFFERIN ST</option>
-        <option value="EGLINTON AVE E">EGLINTON AVE E</option>
-      </select>
-
-      <label>Street 2:</label>
-      <select value={street2} onChange={(e) => setStreet2(e.target.value)}>
-        <option value="BATHURST ST">BATHURST ST</option>
-        <option value="LAWRENCE AVE E">LAWRENCE AVE E</option>
-        <option value="YONGE ST">YONGE ST</option>
-        <option value="FINCH AVE E">FINCH AVE E</option>
-        <option value="EGLINTON AVE E">EGLINTON AVE E</option>
-      </select>
-
-      <label>Offset:</label>
-      <select value={offset} onChange={(e) => setOffset(e.target.value)}>
-        <option value="10 m West of">10 m West of</option>
-        <option value="10 m North o">10 m North o</option>
-        <option value="5 m South of">5 m South of</option>
-        <option value="10 m South o">10 m South o</option>
-        <option value="5 m East of">5 m East of</option>
-      </select>
-
-      <label>District:</label>
-      <select value={district} onChange={(e) => setDistrict(e.target.value)}>
-        <option value="Toronto and East York">Toronto and East York</option>
-        <option value="North York">North York</option>
-        <option value="Scarborough">Scarborough</option>
-        <option value="Etobicoke York">Etobicoke York</option>
-      </select>
-
-      <label>Impact Type:</label>
-      <select value={impactype} onChange={(e) => setImpactype(e.target.value)}>
-        <option value="Approaching">Approaching</option>
-        <option value="SMV Other">SMV Other</option>
-        <option value="Pedestrian Collisions">Pedestrian Collisions</option>
-        <option value="Angle">Angle</option>
-        <option value="Turning Movement">Turning Movement</option>
-        <option value="Cyclist Collisions">Cyclist Collisions</option>
-        <option value="Rear End">Rear End</option>
-        <option value="Sideswipe">Sideswipe</option>
-        <option value="SMV Unattended Vehicle">SMV Unattended Vehicle</option>
-        <option value="Other">Other</option>
-      </select>
-
-      <label>Injury:</label>
-      <select value={injury} onChange={(e) => setInjury(e.target.value)}>
-        <option value="Fatal">Fatal</option>
-        <option value="Major">Major</option>
-        <option value="Minor">Minor</option>
-        <option value="Minimal">Minimal</option>
-      </select>
-
-      <label>Pedestrian Condition:</label>
-      <select value={pedcond} onChange={(e) => setPedcond(e.target.value)}>
-        <option value="Inattentive">Inattentive</option>
-        <option value="Normal">Normal</option>
-        <option value="Unknown">Unknown</option>
-        <option value="Medical or Physical Disability">Medical or Physical Disability</option>
-        <option value="Had Been Drinking">Had Been Drinking</option>
-        <option value="Ability Impaired, Alcohol">Ability Impaired, Alcohol</option>
-        <option value="Other">Other</option>
-        <option value="Ability Impaired, Alcohol Over .80">Ability Impaired, Alcohol Over .80</option>
-        <option value="Ability Impaired, Drugs">Ability Impaired, Drugs</option>
-        <option value="Fatigue">Fatigue</option>
-      </select>
-
-      <label>Driver Condition:</label>
-      <select value={drivcond} onChange={(e) => setDrivcond(e.target.value)}>
-        <option value="Normal">Normal</option>
-        <option value="Ability Impaired, Alcohol Over .08">Ability Impaired, Alcohol Over .08</option>
-        <option value="Inattentive">Inattentive</option>
-        <option value="Unknown">Unknown</option>
-        <option value="Medical or Physical Disability">Medical or Physical Disability</option>
-        <option value="Had Been Drinking">Had Been Drinking</option>
-        <option value="Fatigue">Fatigue</option>
-        <option value="Other">Other</option>
-        <option value="Ability Impaired, Alcohol">Ability Impaired, Alcohol</option>
-        <option value="Ability Impaired, Drugs">Ability Impaired, Drugs</option>
-      </select>
-
-      <br />
-      <button className="predict-btn" onClick={handlePredict}>
-        Predict
-      </button>
-
-      {prediction !== null && (
-        <p>
-          <strong>Prediction Result:</strong>{" "}
-          {prediction === 1 ? "Fatal" : prediction === 0 ? "Non-Fatal" : prediction}
-        </p>
-      )}
     </div>
   );
 }

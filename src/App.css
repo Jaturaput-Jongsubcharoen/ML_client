@@ -1,12 +1,23 @@
-.container {
-  background-color: #fff;
-  max-width: 600px;
+.container-main {
+  background-color: #ffffff;
+  max-width: 100%;
   margin: 2rem auto;
   padding: 2rem;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
   width: 90%;
 }
+
+.container {
+  background-color: #919191;
+  max-width: 100%;
+  margin: 2rem auto;
+  padding: 2rem;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  width: 90%;
+}
+
 
 .div-first {
   background-color: #fff;
@@ -22,9 +33,10 @@ h2 {
   color: #333;
 }
 
+/*
 button {
   background-color: #007bff;
-  color: #fff;
+  color: #000000;
   padding: 10px 20px;
   font-size: 1rem;
   border: none;
@@ -33,16 +45,19 @@ button {
   display: block;
   margin: 1rem auto;
 }
+*/
 
 button:hover {
   background-color: #0056b3;
 }
 
+/*
 p {
   text-align: center;
   font-size: 1.1rem;
   color: #444;
 }
+*/
 
 strong {
   color: #000000;
@@ -56,11 +71,12 @@ strong {
 }
 
 .predict-btn {
+  color: #000000;
   padding: 10px 20px;
   font-size: 1rem;
   font-weight: bold;
   color: white;
-  background-color: #7a8b9d;
+  background-color: #232323;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -85,8 +101,9 @@ strong {
   min-width: 180px;             
   height: 45px;
   font-size: 14px;
-  background-color: #e0e7ff;
-  border: 2px solid #4f46e5;
+  color: #ffffff;
+  background-color: #5e5d59;
+  border: 2px solid #000000;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.2s ease;
@@ -107,4 +124,79 @@ strong {
   border-radius: 6px;
   margin-bottom: 1rem;
   width: 200px;
+}
+
+/*-------------------------------------------*/
+/* Label and select container layout */
+.select-group {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+/* Styling each label */
+.select-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #333;
+}
+
+/* Styling each select dropdown */
+.select-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  background-color: #f9f9f9;
+  transition: border-color 0.3s ease;
+}
+
+/* Hover and focus effects */
+.select-group select:focus,
+.select-group select:hover {
+  border-color: #007bff;
+  outline: none;
+  background-color: #fff;
+}
+
+/*-------------------------------------------*/
+.flex-form {
+  margin-bottom: 20px;
+}
+
+.flex-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.select-group {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.select-group label {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.select-group select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/*-------------------------------------------*/
+.prediction-value {
+  color: white;
+}
+
+.prediction-result {
+  margin-top: 1rem;
+  font-size: 1.1rem;
 }
