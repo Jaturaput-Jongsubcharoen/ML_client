@@ -1,3 +1,4 @@
+// Hello, It's me, Jaturaput.
 import React, { useState } from 'react';
 import './App.css';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
