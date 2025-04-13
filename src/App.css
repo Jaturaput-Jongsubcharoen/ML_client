@@ -28,6 +28,11 @@
   border-radius: 10px;
 }
 
+h1 {
+  text-align: center;
+  color: #333;
+}
+
 h2 {
   text-align: center;
   color: #333;
@@ -80,11 +85,13 @@ strong {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: 0.5s;
 }
 
 .predict-btn:hover {
   background-color: #111112;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
 }
 /*-------------------------------------------*/
 
@@ -93,26 +100,30 @@ strong {
   flex-wrap: wrap;              
   justify-content: center;      
   gap: 10px;
-  margin-bottom: 20px;
 }
 
 .model-buttons button {
   flex: 1 1 auto;                
-  min-width: 180px;             
-  height: 45px;
+  width: 0%;             
+  height: 100%;
   font-size: 14px;
   color: #ffffff;
+  margin: 10px;
+  padding: 2%;
   background-color: #5e5d59;
   border: 2px solid #000000;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition: 0.5s;
   white-space: nowrap;          
 }
 
 .model-buttons button:hover {
-  background-color: #c7d2fe;
-  transform: translateY(-2px);
+
+  background-color: #7d7d7d;
+  color: #000000;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
 }
 
 /*-------------------------------------------*/
@@ -199,4 +210,35 @@ strong {
 .prediction-result {
   margin-top: 1rem;
   font-size: 1.1rem;
+}
+
+/*-------------------------------------------*/
+.metrics-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 1.5rem 0;
+}
+
+.model-accuracy-circle {
+  width: 140px;
+  height: 140px;
+  text-align: center;
+  background-color: #1e1e1e;
+  border-radius: 50%;
+  padding: 10px;
+  box-shadow: 0 0 10px rgba(255, 77, 79, 0.2);
+  transition: all 0.3s ease;
+}
+
+.model-accuracy-circle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+}
+
+.accuracy-label {
+  color: white;
+  font-weight: bold;
+  margin: 0.8rem;
+  font-size: 0.9rem;
 }

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import './App.css';
+import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
 
 function App() {
   const [modelName, setModelName] = useState("random_forest");
 
+  // -- form input states --
   const [street1, setStreet1] = useState("LAWRENCE AVE E");
   const [street2, setStreet2] = useState("E OF DVP ON RAMP Aven");
   const [offset, setOffset] = useState("10 m West of");
@@ -15,6 +18,27 @@ function App() {
 
   const [prediction, setPrediction] = useState(null);
 
+  // -- hardcoded model scores for indicators --
+  /*
+  const modelStats = {
+    logistic_regression: { accuracy: 77.40, precision: 33.47, recall: 61.24, f1: 43.28 },
+    linear_regression:   { accuracy: 78.40, precision: 34.32, recall: 58.43, f1: 43.24 },
+    svm:                 { accuracy: 73.15, precision: 29.53, recall: 65.36, f1: 40.68 },
+    random_forest:       { accuracy: 72.47, precision: 29.10, recall: 66.48, f1: 40.48 },
+    neural_network:      { accuracy: 72.42, precision: 29.02, recall: 66.29, f1: 40.36 },
+  };
+  */
+  const modelStats = {
+    logistic_regression: { accuracy: 0.773998, precision: 0.334698, recall: 0.612360, f1: 0.432826 },
+    linear_regression:   { accuracy: 0.784019, precision: 0.343234, recall: 0.584270, f1: 0.432432 },
+    svm:                 { accuracy: 0.731540, precision: 0.295262, recall: 0.653558, f1: 0.406760 },
+    random_forest:       { accuracy: 0.724684, precision: 0.290984, recall: 0.664794, f1: 0.404789 },
+    neural_network:      { accuracy: 0.724156, precision: 0.290164, recall: 0.662921, f1: 0.403649 },
+  };
+  
+  const { accuracy, precision, recall, f1 } = modelStats[modelName] || { accuracy: 0, precision: 0, recall: 0, f1: 0 };
+
+  // -- API call function --
   const handlePredict = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/predict`, {
@@ -32,7 +56,7 @@ function App() {
             IMPACTYPE: impactype,
             INJURY: injury,
             PEDCOND: pedcond,
-            DRIVCOND: drivcond
+            DRIVCOND: drivcond,
           }
         }),
       });
@@ -46,9 +70,9 @@ function App() {
 
   return (
     <div className="container-main">
-      <h2>Machine Learning Models</h2>
-      
-        <div className="container">
+      <h1>Machine Learning Models</h1>
+
+      <div className="container">
         <p><strong>Select Model:</strong></p>
         <div className="model-buttons">
           <button onClick={() => setModelName("random_forest")}>Random Forest</button>
@@ -58,8 +82,74 @@ function App() {
           <button onClick={() => setModelName("linear_regression")}>Linear Regression</button>
         </div>
 
+        {/* -- Metrics row (Accuracy + Precision + Recall + F1 Score side-by-side) -- */}
+        <div className="metrics-row">
+          {/* -- Accuracy circle -- */}
+          <div className="model-accuracy-circle">
+            <CircularProgressbar
+              value={accuracy * 100}
+              text={`${(accuracy * 100).toFixed(2)}%`}
+              styles={buildStyles({
+                pathColor: "#a89a9a",
+                textColor: "#ffffff",
+                trailColor: "#3a3a3a",
+                backgroundColor: "#000",
+              })}
+            />
+            <div className="accuracy-label">Model Accuracy</div>
+          </div>
+
+          {/* -- Precision circle -- */}
+          <div className="model-accuracy-circle">
+            <CircularProgressbar
+              value={precision * 100}
+              text={`${(precision * 100).toFixed(2)}%`}
+              styles={buildStyles({
+                pathColor: "#a89a9a",
+                textColor: "#ffffff",
+                trailColor: "#3a3a3a",
+                backgroundColor: "#000",
+              })}
+            />
+            <div className="accuracy-label">Model Precision</div>
+          </div>
+
+          {/* -- Recall circle -- */}
+          <div className="model-accuracy-circle">
+            <CircularProgressbar
+              value={recall * 100}
+              text={`${(recall * 100).toFixed(2)}%`}
+              styles={buildStyles({
+                pathColor: "#a89a9a",
+                textColor: "#ffffff",
+                trailColor: "#3a3a3a",
+                backgroundColor: "#000",
+              })}
+            />
+            <div className="accuracy-label">Model Recall</div>
+          </div>
+
+          {/* -- F1 Score circle -- */}
+          <div className="model-accuracy-circle">
+            <CircularProgressbar
+              value={f1 * 100}
+              text={`${(f1 * 100).toFixed(2)}%`}
+              styles={buildStyles({
+                pathColor: "#a89a9a",
+                textColor: "#ffffff",
+                trailColor: "#3a3a3a",
+                backgroundColor: "#000",
+              })}
+            />
+            <div className="accuracy-label">F1 Score</div>
+          </div>
+        </div>
+
+        <br />
+
         <h3>Selected Model: <strong>{modelName.replace(/_/g, " ")}</strong></h3>
-        
+
+        {/* -- form layout (2 rows) -- */}
         <div className="flex-form">
           <div className="flex-row">
             <div className="select-group">
@@ -106,7 +196,7 @@ function App() {
             </div>
           </div>
 
-          <div className="flex-row">       
+          <div className="flex-row">
             <div className="select-group">
               <label>Impact Type:</label>
               <select value={impactype} onChange={(e) => setImpactype(e.target.value)}>
@@ -164,7 +254,7 @@ function App() {
                 <option value="Ability Impaired, Drugs">Ability Impaired, Drugs</option>
               </select>
             </div>
-          </div> 
+          </div>
         </div>
 
         <br />
@@ -180,7 +270,7 @@ function App() {
             </span>
           </div>
         )}
-        
+
       </div>
     </div>
   );
