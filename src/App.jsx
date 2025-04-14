@@ -132,7 +132,7 @@ function App() {
               className={`model-button ${modelName === model ? 'active' : ''}`}
               onClick={() => setModelName(model)}
             >
-              {model.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+              {model.replaceAll('_', ' ').toUpperCase()}
             </button>
           ))}
         </div>
