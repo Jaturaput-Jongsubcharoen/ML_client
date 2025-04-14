@@ -8,34 +8,34 @@ function App() {
 
   const modelPerformance = {
     "random_forest": {
-      accuracy: 0.955696,
-      precision: 0.908482,
-      recall: 0.762172,
-      f1: 0.828921
+      accuracy: 0.957806,
+      precision: 0.913717,
+      recall: 0.773408,
+      f1: 0.837728
     },
     "logistic_regression": {
-      accuracy: 0.795886,
-      precision: 0.366962,
-      recall: 0.619850,
-      f1: 0.461003
+      accuracy: 0.794568,
+      precision: 0.366412,
+      recall: 0.629213,
+      f1: 0.463129
     },
     "svm": {
-      accuracy: 0.829641,
-      precision: 0.429648,
-      recall: 0.640449,
-      f1: 0.514286
+      accuracy: 0.837289,
+      precision: 0.442759,
+      recall: 0.601124,
+      f1: 0.509929
     },
     "neural_network": {
-      accuracy: 0.850738,
-      precision: 0.478261,
-      recall: 0.659176,
-      f1: 0.554331
+      accuracy: 0.854958,
+      precision: 0.490291,
+      recall: 0.756554,
+      f1: 0.594993
     },
     "knn": {
-      accuracy: 0.799625,
-      precision: 0.490241,
-      recall: 0.892857,
-      f1: 0.607829
+      accuracy: 0.921414,
+      precision: 0.689103,
+      recall: 0.805243,
+      f1: 0.742660
     }
   };
 
