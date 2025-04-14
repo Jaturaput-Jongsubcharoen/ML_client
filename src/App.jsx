@@ -191,7 +191,19 @@ function App() {
           </div>
         </div>
       </div>
-      
+      <hr />
+
+      <div className="model-button-main-predict">
+      <button className="predict-button" type="button" onClick={handlePredict}>Predict</button>
+        
+      {prediction !== null && (
+        <p>Prediction: {prediction === 1 ? "Fatal (1)" : "Non-Fatal (0)"}</p>
+      )}
+
+      {error && (
+        <p style={{ color: "red" }}>Error: {error}</p>
+      )}
+      </div>
 
       <hr />
       <div className="model-button-main-group">
@@ -268,15 +280,7 @@ function App() {
         </div>
       </div>
       <br />
-      <button className="predict-button" type="button" onClick={handlePredict}>Predict</button>
 
-      {prediction !== null && (
-        <p>Prediction: {prediction === 1 ? "Fatal (1)" : "Non-Fatal (0)"}</p>
-      )}
-
-      {error && (
-        <p style={{ color: "red" }}>Error: {error}</p>
-      )}
     </div>
   );
 }
