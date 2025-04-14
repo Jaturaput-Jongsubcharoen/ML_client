@@ -5,7 +5,7 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 
 function App() {
-  const [modelName, setModelName] = useState("random_forest");
+  const [modelName, setModelName] = useState("knn");
 
   // -- form input states --
   const [street1, setStreet1] = useState("LAWRENCE AVE E");
@@ -20,21 +20,12 @@ function App() {
   const [prediction, setPrediction] = useState(null);
 
   // -- hardcoded model scores for indicators --
-  /*
   const modelStats = {
-    logistic_regression: { accuracy: 77.40, precision: 33.47, recall: 61.24, f1: 43.28 },
-    linear_regression:   { accuracy: 78.40, precision: 34.32, recall: 58.43, f1: 43.24 },
-    svm:                 { accuracy: 73.15, precision: 29.53, recall: 65.36, f1: 40.68 },
-    random_forest:       { accuracy: 72.47, precision: 29.10, recall: 66.48, f1: 40.48 },
-    neural_network:      { accuracy: 72.42, precision: 29.02, recall: 66.29, f1: 40.36 },
-  };
-  */
-  const modelStats = {
-    logistic_regression: { accuracy: 0.773998, precision: 0.334698, recall: 0.612360, f1: 0.432826 },
-    linear_regression:   { accuracy: 0.784019, precision: 0.343234, recall: 0.584270, f1: 0.432432 },
-    svm:                 { accuracy: 0.731540, precision: 0.295262, recall: 0.653558, f1: 0.406760 },
-    random_forest:       { accuracy: 0.724684, precision: 0.290984, recall: 0.664794, f1: 0.404789 },
-    neural_network:      { accuracy: 0.724156, precision: 0.290164, recall: 0.662921, f1: 0.403649 },
+    knn:                { accuracy: 0.909283, precision: 0.975000, recall: 0.365169, f1: 0.531335 },
+    logistic_regression:{ accuracy: 0.773998, precision: 0.334698, recall: 0.612360, f1: 0.432826 },
+    svm:                { accuracy: 0.731540, precision: 0.295262, recall: 0.653558, f1: 0.406760 },
+    random_forest:      { accuracy: 0.724684, precision: 0.290984, recall: 0.664794, f1: 0.404789 },
+    neural_network:     { accuracy: 0.724156, precision: 0.290164, recall: 0.662921, f1: 0.403649 }
   };
   
   const { accuracy, precision, recall, f1 } = modelStats[modelName] || { accuracy: 0, precision: 0, recall: 0, f1: 0 };
@@ -80,7 +71,7 @@ function App() {
           <button onClick={() => setModelName("svm")}>SVM</button>
           <button onClick={() => setModelName("neural_network")}>Neural Network</button>
           <button onClick={() => setModelName("logistic_regression")}>Logistic Regression</button>
-          <button onClick={() => setModelName("linear_regression")}>Linear Regression</button>
+          <button onClick={() => setModelName("knn")}>KNN</button>
         </div>
 
         {/* -- Metrics row (Accuracy + Precision + Recall + F1 Score side-by-side) -- */}
