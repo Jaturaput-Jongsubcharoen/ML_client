@@ -9,7 +9,7 @@
 }
 
 .container-for-body {
-  background-color: #919191;
+  background-color: rgba(145, 145, 145, 0.8);
   max-width: 100%;
   margin: 2rem auto;
   padding: 2rem;
@@ -301,7 +301,7 @@ strong {
   margin: 2% 0;
   border-radius: 50px;
 
-  background-color: rgba(255, 255, 255, 0.08); 
+  background-color: rgba(147, 19, 19, 0.892); 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px); 
 
