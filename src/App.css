@@ -9,13 +9,13 @@
 }
 
 .container-for-body {
-  background-color: rgba(145, 145, 145, 0.8);
-  max-width: 100%;
-  margin: 2rem auto;
-  padding: 2rem;
-  box-shadow: 0 0 10px rgba(255, 77, 79, 0.2);
-  border-radius: 8%;
-  width: 90%;
+  background-color: rgba(145, 145, 145, 0.8) !important;
+  max-width: 100% !important;
+  margin: 2rem auto !important;
+  padding: 2rem !important;
+  box-shadow: 0 0 10px rgba(255, 77, 79, 0.2) !important;
+  border-radius: 8% !important;
+  width: 90% !important;
 }
 
 
@@ -301,7 +301,7 @@ strong {
   margin: 2% 0;
   border-radius: 50px;
 
-  background-color: rgba(147, 19, 19, 0.892); 
+  background-color: rgba(255, 255, 255, 0.08); 
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px); 
 
