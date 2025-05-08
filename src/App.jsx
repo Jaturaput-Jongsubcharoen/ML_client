@@ -121,167 +121,169 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <h1>M A C H I N E &nbsp;&nbsp;&nbsp; L E A R N I N G &nbsp;&nbsp;&nbsp; M O D E L S</h1>
+    <>
+      <div className="container">
+        <h1>M A C H I N E &nbsp;&nbsp;&nbsp; L E A R N I N G &nbsp;&nbsp;&nbsp; M O D E L S</h1>
+          <div className="model-button-main-group">
+          <h4>Select Model:</h4>
+          <div className="model-button-group">
+            {['knn', 'random_forest', 'svm', 'logistic_regression', 'neural_network'].map((model) => (
+              <button
+                key={model}
+                className={`model-button ${modelName === model ? 'active' : ''}`}
+                onClick={() => setModelName(model)}
+              >
+                {model.replaceAll('_', ' ').toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          <div className="model-button-group">
+            <div className="progress-widget">
+              <h4>Model Accuracy</h4>
+              <CircularProgressbar
+                value={modelPerformance[modelName].accuracy * 100}
+                text={`${(modelPerformance[modelName].accuracy * 100).toFixed(1)}%`}
+                styles={buildStyles({
+                  textColor: "#ffffff",
+                  pathColor: "#b1aeae",
+                  trailColor: "#333"
+                })}
+              />
+            </div>
+
+            <div className="progress-widget">
+              <h4>Model Precision</h4>
+              <CircularProgressbar
+                value={modelPerformance[modelName].precision * 100}
+                text={`${(modelPerformance[modelName].precision * 100).toFixed(1)}%`}
+                styles={buildStyles({
+                  textColor: "#ffffff",
+                  pathColor: "#b1aeae",
+                  trailColor: "#333"
+                })}
+              />
+            </div>
+              
+            <div className="progress-widget">
+              <h4>Model Recall</h4>
+              <CircularProgressbar
+                value={modelPerformance[modelName].recall * 100}
+                text={`${(modelPerformance[modelName].recall * 100).toFixed(1)}%`}
+                styles={buildStyles({
+                  textColor: "#ffffff",
+                  pathColor: "#b1aeae",
+                  trailColor: "#333"
+                })}
+              />
+            </div>
+
+            <div className="progress-widget">
+              <h4>Model F1 Score</h4>
+              <CircularProgressbar
+                value={modelPerformance[modelName].f1 * 100}
+                text={`${(modelPerformance[modelName].f1 * 100).toFixed(1)}%`}
+                styles={buildStyles({
+                  textColor: "#ffffff",
+                  pathColor: "#b1aeae",
+                  trailColor: "#333"
+                })}
+              />
+            </div>
+          </div>
+        </div>
+        <hr />
+
+        <div className="model-button-main-predict">
+        <button className="predict-button" type="button" onClick={handlePredict}>Predict</button>
+          
+        {prediction !== null && (
+          <p>Prediction: {prediction === 1 ? "Fatal (1)" : "Non-Fatal (0)"}</p>
+        )}
+
+        {error && (
+          <p style={{ color: "red" }}>Error: {error}</p>
+        )}
+        </div>
+
+        <hr />
         <div className="model-button-main-group">
-        <h4>Select Model:</h4>
-        <div className="model-button-group">
-          {['knn', 'random_forest', 'svm', 'logistic_regression', 'neural_network'].map((model) => (
-            <button
-              key={model}
-              className={`model-button ${modelName === model ? 'active' : ''}`}
-              onClick={() => setModelName(model)}
-            >
-              {model.replaceAll('_', ' ').toUpperCase()}
-            </button>
-          ))}
+          <h4>Categorical Features</h4>
+          <div className="model-button-group">
+            <div className="flex-container">
+              {[
+                { key: "STREET1", label: "Street 1", options: ["YONGE ST", "LAWRENCE AVE E", "DUNDAS ST W", "EGLINTON AVE E"] },
+                { key: "STREET2", label: "Street 2", options: ["E OF DVP ON RAMP Aven", "BLOOR ST", "KING ST", "BATHURST ST"] },
+                { key: "OFFSET", label: "Offset", options: ["10 m West of", "5 m East of", "10 m North of"] },
+                { key: "DISTRICT", label: "District", options: ["Toronto and East York", "North York", "Etobicoke", "Scarborough"] }
+              ].map(({ key, label, options }) => (
+                <div key={key} className="form-group">
+                  <label>{label}:</label>
+                  <select name={key} value={inputs[key]} onChange={handleChange}>
+                    {options.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex-container">
+              {[
+                { key: "IMPACTYPE", label: "Impact Type", options: ["Pedestrian Collisions", "Cyclist Collisions", "Rear End", "Sideswipe"] },
+                { key: "INJURY", label: "Injury Level", options: ["Fatal", "Major", "Minor", "Minimal"] },
+                { key: "PEDCOND", label: "Pedestrian Condition", options: ["Normal", "Unknown", "Inattentive", "Other"] },
+                { key: "DRIVCOND", label: "Driver Condition", options: ["Normal", "Unknown", "Fatigue", "Medical or Physical Disability"] }
+              ].map(({ key, label, options }) => (
+                <div key={key} className="form-group">
+                  <label>{label}:</label>
+                  <select name={key} value={inputs[key]} onChange={handleChange}>
+                    {options.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <h4>Numerical Features</h4>
+          <div className="model-button-group">
+            {/* First row */}
+            <div className="flex-container">
+              {["LATITUDE", "LONGITUDE", "TIME", "ACCNUM", "OBJECTID"].map((key) => (
+                <div className="input-group" key={key}>
+                  <label>{key}</label>
+                  <input
+                    type="number"
+                    name={key}
+                    value={inputs[key]}
+                    onChange={handleChange}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Second row */}
+            <div className="flex-container">
+              {["INDEX", "x", "y", "FATAL_NO"].map((key) => (
+                <div className="input-group" key={key}>
+                  <label>{key}</label>
+                  <input
+                    type="number"
+                    name={key}
+                    value={inputs[key]}
+                    onChange={handleChange}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+        <br />
 
-        <div className="model-button-group">
-          <div className="progress-widget">
-            <h4>Model Accuracy</h4>
-            <CircularProgressbar
-              value={modelPerformance[modelName].accuracy * 100}
-              text={`${(modelPerformance[modelName].accuracy * 100).toFixed(1)}%`}
-              styles={buildStyles({
-                textColor: "#ffffff",
-                pathColor: "#b1aeae",
-                trailColor: "#333"
-              })}
-            />
-          </div>
-
-          <div className="progress-widget">
-            <h4>Model Precision</h4>
-            <CircularProgressbar
-              value={modelPerformance[modelName].precision * 100}
-              text={`${(modelPerformance[modelName].precision * 100).toFixed(1)}%`}
-              styles={buildStyles({
-                textColor: "#ffffff",
-                pathColor: "#b1aeae",
-                trailColor: "#333"
-              })}
-            />
-          </div>
-            
-          <div className="progress-widget">
-            <h4>Model Recall</h4>
-            <CircularProgressbar
-              value={modelPerformance[modelName].recall * 100}
-              text={`${(modelPerformance[modelName].recall * 100).toFixed(1)}%`}
-              styles={buildStyles({
-                textColor: "#ffffff",
-                pathColor: "#b1aeae",
-                trailColor: "#333"
-              })}
-            />
-          </div>
-
-          <div className="progress-widget">
-            <h4>Model F1 Score</h4>
-            <CircularProgressbar
-              value={modelPerformance[modelName].f1 * 100}
-              text={`${(modelPerformance[modelName].f1 * 100).toFixed(1)}%`}
-              styles={buildStyles({
-                textColor: "#ffffff",
-                pathColor: "#b1aeae",
-                trailColor: "#333"
-              })}
-            />
-          </div>
-        </div>
       </div>
-      <hr />
-
-      <div className="model-button-main-predict">
-      <button className="predict-button" type="button" onClick={handlePredict}>Predict</button>
-        
-      {prediction !== null && (
-        <p>Prediction: {prediction === 1 ? "Fatal (1)" : "Non-Fatal (0)"}</p>
-      )}
-
-      {error && (
-        <p style={{ color: "red" }}>Error: {error}</p>
-      )}
-      </div>
-
-      <hr />
-      <div className="model-button-main-group">
-        <h4>Categorical Features</h4>
-        <div className="model-button-group">
-          <div className="flex-container">
-            {[
-              { key: "STREET1", label: "Street 1", options: ["YONGE ST", "LAWRENCE AVE E", "DUNDAS ST W", "EGLINTON AVE E"] },
-              { key: "STREET2", label: "Street 2", options: ["E OF DVP ON RAMP Aven", "BLOOR ST", "KING ST", "BATHURST ST"] },
-              { key: "OFFSET", label: "Offset", options: ["10 m West of", "5 m East of", "10 m North of"] },
-              { key: "DISTRICT", label: "District", options: ["Toronto and East York", "North York", "Etobicoke", "Scarborough"] }
-            ].map(({ key, label, options }) => (
-              <div key={key} className="form-group">
-                <label>{label}:</label>
-                <select name={key} value={inputs[key]} onChange={handleChange}>
-                  {options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex-container">
-            {[
-              { key: "IMPACTYPE", label: "Impact Type", options: ["Pedestrian Collisions", "Cyclist Collisions", "Rear End", "Sideswipe"] },
-              { key: "INJURY", label: "Injury Level", options: ["Fatal", "Major", "Minor", "Minimal"] },
-              { key: "PEDCOND", label: "Pedestrian Condition", options: ["Normal", "Unknown", "Inattentive", "Other"] },
-              { key: "DRIVCOND", label: "Driver Condition", options: ["Normal", "Unknown", "Fatigue", "Medical or Physical Disability"] }
-            ].map(({ key, label, options }) => (
-              <div key={key} className="form-group">
-                <label>{label}:</label>
-                <select name={key} value={inputs[key]} onChange={handleChange}>
-                  {options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        <h4>Numerical Features</h4>
-        <div className="model-button-group">
-          {/* First row */}
-          <div className="flex-container">
-            {["LATITUDE", "LONGITUDE", "TIME", "ACCNUM", "OBJECTID"].map((key) => (
-              <div className="input-group" key={key}>
-                <label>{key}</label>
-                <input
-                  type="number"
-                  name={key}
-                  value={inputs[key]}
-                  onChange={handleChange}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Second row */}
-          <div className="flex-container">
-            {["INDEX", "x", "y", "FATAL_NO"].map((key) => (
-              <div className="input-group" key={key}>
-                <label>{key}</label>
-                <input
-                  type="number"
-                  name={key}
-                  value={inputs[key]}
-                  onChange={handleChange}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <br />
-
-    </div>
+    </>
   );
 }
 
