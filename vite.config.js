@@ -1,7 +1,13 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-})
+  build: {
+    minify: 'esbuild', // explicitly use esbuild (default, but safe to specify)
+    cssCodeSplit: true, // ensures CSS is bundled per-component (default true)
+  },
+  css: {
+    devSourcemap: true, // helpful for debugging in dev
+  },
+});

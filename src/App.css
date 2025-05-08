@@ -9,15 +9,14 @@
 }
 
 .container-for-body {
-  background-color: limegreen;
-  /* force redeploy */ /* <--- add this comment */
-  min-height: 100vh; /* forces visible height */
+  background-color: rgb(136, 143, 136);
+  min-height: 100vh;
   display: block;
   max-width: 100%;
   margin: 2rem auto;
   padding: 2rem;
-  border: 1px solid red;
-  box-shadow: 0 0 10px rgba(255, 77, 79, 0.2);
+  /*border: 1px solid red;*/
+  box-shadow: 0 0 40px rgba(110, 107, 107, 0.8);
   border-radius: 8%;
   width: 90%;
 }
