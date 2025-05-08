@@ -122,8 +122,7 @@ function App() {
 
   return (
     <>
-      <div className="container">
-        <div className="container">
+      <div className="container-for-body">
         <h1>M A C H I N E &nbsp;&nbsp;&nbsp; L E A R N I N G &nbsp;&nbsp;&nbsp; M O D E L S</h1>
           <div className="model-button-main-group">
           <h4>Select Model:</h4>
@@ -282,7 +281,7 @@ function App() {
           </div>
         </div>
         <br />
-      </div>
+
       </div>
     </>
   );
