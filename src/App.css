@@ -9,13 +9,13 @@
 }
 
 .container-for-body {
-  background-color: rgba(145, 145, 145, 0.8) ;
+  background-color: limegreen;
   min-height: 100vh; /* forces visible height */
   display: block;
   max-width: 100%;
   margin: 2rem auto;
   padding: 2rem;
-  border: 10px solid red;
+  border: 1px solid red;
   box-shadow: 0 0 10px rgba(255, 77, 79, 0.2);
   border-radius: 8%;
   width: 90%;
