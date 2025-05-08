@@ -10,6 +10,8 @@
 
 .container-for-body {
   background-color: rgba(145, 145, 145, 0.8) !important;
+  min-height: 100vh; /* forces visible height */
+  display: block;
   max-width: 100% !important;
   margin: 2rem auto !important;
   padding: 2rem !important;
@@ -17,7 +19,6 @@
   border-radius: 8% !important;
   width: 90% !important;
 }
-
 
 .div-first {
   background-color: #fff;
