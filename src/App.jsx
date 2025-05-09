@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './App.css';
+import './PredictedPage.css';
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 
