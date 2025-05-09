@@ -15,8 +15,6 @@
   max-width: 100%;
   margin: 2rem auto;
   padding: 2rem;
-  /*border: 1px solid red;*/
-  box-shadow: 0 0 40px rgba(110, 107, 107, 0.8);
   border-radius: 8%;
   width: 90%;
 }
