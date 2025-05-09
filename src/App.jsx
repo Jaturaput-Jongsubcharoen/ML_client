@@ -124,9 +124,8 @@ function App() {
     <>
       <div className="container-for-body">
         <h1>R O A D &nbsp;&nbsp;&nbsp; R I S K &nbsp;&nbsp;&nbsp; P R E D I C T O R</h1>
-        <div className="container-for-body">
         <div className="model-button-main-group">
-          <h4>Select Model:</h4>
+          <h4 className="sub-header">Select Model:</h4>
           <div className="model-button-group">
             {['knn', 'random_forest', 'svm', 'logistic_regression', 'neural_network'].map((model) => (
               <button
@@ -209,7 +208,7 @@ function App() {
 
         <hr />
         <div className="model-button-main-group">
-          <h4>Categorical Features</h4>
+          <h4 className="sub-header">Categorical Features</h4>
           <div className="model-button-group">
             <div className="flex-container">
               {[
@@ -248,7 +247,7 @@ function App() {
             </div>
           </div>
           
-          <h4>Numerical Features</h4>
+          <h4 className="sub-header">Numerical Features</h4>
           <div className="model-button-group">
             {/* First row */}
             <div className="flex-container">
@@ -280,7 +279,6 @@ function App() {
               ))}
             </div>
           </div>
-        </div>
         </div>
         <br />
 
