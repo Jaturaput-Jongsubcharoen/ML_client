@@ -122,10 +122,10 @@ function App() {
 
   return (
     <>
-      <div>
-        <div className="container-for-body">
+      <div className="container-for-body">
         <h1>R O A D &nbsp;&nbsp;&nbsp; R I S K &nbsp;&nbsp;&nbsp; P R E D I C T O R</h1>
-          <div className="model-button-main-group">
+        <div className="container-for-body">
+        <div className="model-button-main-group">
           <h4>Select Model:</h4>
           <div className="model-button-group">
             {['knn', 'random_forest', 'svm', 'logistic_regression', 'neural_network'].map((model) => (
@@ -281,8 +281,9 @@ function App() {
             </div>
           </div>
         </div>
-        <br />
         </div>
+        <br />
+
       </div>
     </>
   );
