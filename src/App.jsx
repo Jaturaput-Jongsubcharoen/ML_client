@@ -596,8 +596,12 @@ function App() {
             </div>
             <div className="col-default col-600px col-900px center">
               <p className="title-decoration2">
-                This web app predicts the likelihood of a fatal traffic collision in Toronto using machine learning models like Random Forest, KNN, SVM, Neural Networks, and Logistic Regression, based on user-selected road, driver, and environmental conditions.
+                &nbsp;&nbsp;&nbsp;&nbsp; This web app predicts the likelihood of a fatal traffic collision in Toronto using machine learning models like Random Forest, KNN, SVM, Neural Networks, and Logistic Regression, based on user-selected road, driver, and environmental conditions.
                 When you select a model, its performance is displayed to help you understand how well it predicts fatal outcomes.
+              </p>
+              <br/>
+              <p className="title-decoration3">
+                By Jaturaput Jongsubcharoen
               </p>
             </div>
         </div>
