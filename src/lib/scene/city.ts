@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 import type { Theme } from '../types';
-import { chooseFollowVehicle, createTrafficFleet, trafficPose } from './traffic';
-import { fitCameraDistance } from './camera';
-import { sceneBudget, usesVehicleCamera, VehicleCamera } from './vehicleCamera';
+import { chooseFollowVehicle, createTrafficFleet, trafficPose, type TrafficPose } from './traffic';
+import { FOLLOW_LOOKAHEAD, followFraming, sceneBudget, VehicleCamera, type FollowInput } from './vehicleCamera';
 
 export interface CityController {
 	setTheme: (theme: Theme) => void;
@@ -455,21 +454,17 @@ export function createCity(
 	let pointerX = 0.5;
 	let pointerY = 0.5;
 	let pointerInside = false;
-	const neutralAngle = 0.65;
-	let orbitAngle = neutralAngle;
-	let cameraAngle = orbitAngle;
-	const staticElevation = 0.6;
-	let cameraElevation = staticElevation;
-	const minCameraAngle = orbitAngle - Math.PI * 0.7;
-	const maxCameraAngle = orbitAngle + Math.PI * 0.7;
-	const target = new THREE.Vector3(0, 6, 0);
-	const desiredCameraPosition = new THREE.Vector3();
+	// Cursor look offsets gently swing the chase boom around the followed vehicle.
+	let lookYaw = 0;
+	let lookPitch = 0;
+	const maxLookYaw = 0.12;
+	const maxLookPitch = 0.1;
 	const framingBounds = new THREE.Box3().setFromObject(scene);
-	const cityBounds = new THREE.Box3(new THREE.Vector3(-99, 0, -99), new THREE.Vector3(99, 38, 104));
-	const towerBounds = new THREE.Box3().setFromObject(towerPosition);
-	buildingBounds.push(towerBounds);
+	const framingSize = new THREE.Vector3();
+	buildingBounds.push(new THREE.Box3().setFromObject(towerPosition));
 	const followCamera = new VehicleCamera(buildingBounds);
-	let following = false;
+	const followInput: FollowInput = { yawOffset: 0, pitchOffset: 0, aheadHeading: 0, snap: false };
+	const aheadPose: TrafficPose = { x: 0, z: 0, heading: 0 };
 	let followedVehicle = -1;
 	let exploration = 0;
 	let explorationUntil = 0;
@@ -481,6 +476,7 @@ export function createCity(
 	let diagnosticsAt = -Infinity;
 	let cameraDistance = 0;
 	let cameraInitialized = false;
+
 	waterMat.transparent = false;
 	waterMat.depthTest = true;
 	waterMat.depthWrite = true;
@@ -501,6 +497,36 @@ export function createCity(
 		if (renderScene) render();
 	}
 
+	// Each load follows a random vehicle, avoiding the one picked by the previous load.
+	function selectFollowVehicle() {
+		let previous = followedVehicle;
+		if (previous < 0) {
+			try {
+				const saved = sessionStorage.getItem('toronto-city-follow');
+				if (saved !== null) previous = Number(saved);
+			} catch (error) {
+				console.error('Unable to read the previous visual vehicle selection.', error);
+			}
+		}
+		followedVehicle = chooseFollowVehicle(vehicleCount, previous);
+		try {
+			sessionStorage.setItem('toronto-city-follow', String(followedVehicle));
+		} catch (error) {
+			console.error('Unable to save the visual vehicle selection.', error);
+		}
+		canvas.dataset.followVehicle = String(followedVehicle);
+	}
+
+	function updateFollowInput(dt: number, snap = false) {
+		const vehicle = vehicles[followedVehicle];
+		trafficPose(vehicle.distance + vehicle.speed * FOLLOW_LOOKAHEAD, vehicle.width, vehicle.depth, 3, aheadPose);
+		followInput.aheadHeading = aheadPose.heading + (vehicle.speed < 0 ? Math.PI : 0);
+		followInput.yawOffset = exploration + lookYaw;
+		followInput.pitchOffset = lookPitch;
+		followInput.snap = snap;
+		followCamera.update(vehicle.pose, camera.aspect, dt, followInput);
+	}
+
 	function resize(renderScene = true) {
 		const width = canvas.clientWidth;
 		const height = canvas.clientHeight;
@@ -509,47 +535,16 @@ export function createCity(
 		renderer.setPixelRatio(Math.min(window.devicePixelRatio, nextBudget.pixelRatio));
 		renderer.setSize(width, height, false);
 		camera.aspect = width / height;
-		const wasFollowing = following;
-		following = usesVehicleCamera(width, height);
-		camera.fov = following ? 50 : 38;
-		if (following) {
-			if (followedVehicle < 0) {
-				let previous = -1;
-				try {
-					const saved = sessionStorage.getItem('toronto-city-follow');
-					if (saved !== null) previous = Number(saved);
-				} catch (error) {
-					console.error('Unable to read the previous visual vehicle selection.', error);
-				}
-				followedVehicle = chooseFollowVehicle(vehicleCount, previous);
-				try {
-					sessionStorage.setItem('toronto-city-follow', String(followedVehicle));
-				} catch (error) {
-					console.error('Unable to save the visual vehicle selection.', error);
-				}
-			}
-			camera.setViewOffset(width, height, 0, -height * 0.18, width, height);
-			followCamera.update(vehicles[followedVehicle].pose, camera.aspect, 0, exploration, true);
-			cameraDistance = followCamera.position.distanceTo(followCamera.target);
-		} else {
-			camera.clearViewOffset();
-			cameraDistance = Math.max(
-				fitCameraDistance(cityBounds, target, camera, neutralAngle, staticElevation),
-				fitCameraDistance(towerBounds, target, camera, neutralAngle, staticElevation)
-			);
-			if (wasFollowing) {
-				pointerInside = false;
-				pointerX = pointerY = 0.5;
-				orbitAngle = cameraAngle = neutralAngle;
-				cameraElevation = staticElevation;
-			}
-		}
-		canvas.dataset.cameraMode = following ? 'vehicle' : 'overview';
-		canvas.dataset.followVehicle = String(followedVehicle);
+		const framing = followFraming(camera.aspect);
+		camera.fov = framing.fov;
+		camera.setViewOffset(width, height, -width * framing.frameShift, -height * framing.frameOffset, width, height);
+		// Only the first frame snaps; later resizes (rotation, mobile URL bars) glide to the new framing.
+		if (!cameraInitialized) updateFollowInput(0, true);
+		cameraDistance = framing.distance;
+		canvas.dataset.cameraMode = 'vehicle';
 		canvas.dataset.cameraDistance = cameraDistance.toFixed(3);
-		const framingDepth = framingBounds.getSize(desiredCameraPosition).length();
-		camera.near = following ? 0.5 : Math.max(1, cameraDistance - framingDepth);
-		camera.far = cameraDistance + framingDepth;
+		camera.near = 0.5;
+		camera.far = cameraDistance + framingBounds.getSize(framingSize).length();
 		camera.updateProjectionMatrix();
 		if (scene.fog instanceof THREE.Fog) {
 			scene.fog.near = cameraDistance + 80;
@@ -574,16 +569,14 @@ export function createCity(
 			}
 			return;
 		}
-		if (following) return;
 		if (reduced) return;
 		pointerX = THREE.MathUtils.clamp(event.clientX / Math.max(window.innerWidth, 1), 0, 1);
 		pointerY = THREE.MathUtils.clamp(event.clientY / Math.max(window.innerHeight, 1), 0, 1);
 		pointerInside = true;
-		if (!frame) frame = requestAnimationFrame(tick);
 	}
 
 	function pointerDown(event: PointerEvent) {
-		if (!following || reduced || event.pointerType !== 'touch' || !event.isPrimary) return;
+		if (reduced || event.pointerType !== 'touch' || !event.isPrimary) return;
 		if (!(event.target instanceof Element) || !event.target.closest('.hero') ||
 			event.target.closest('a, button, input, select, summary, .hero-copy')) return;
 		touch = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: exploration, horizontal: false };
@@ -597,59 +590,30 @@ export function createCity(
 		pointerX = 0.5;
 		pointerY = 0.5;
 		pointerInside = false;
-		if (!frame) frame = requestAnimationFrame(tick);
 	}
 
 	function updateCamera(dt: number) {
-		if (following) {
-			if (!touch && performance.now() > explorationUntil) exploration *= Math.exp(-2.8 * dt);
-			followCamera.update(vehicles[followedVehicle].pose, camera.aspect, dt, exploration);
-			return;
-		}
-		const edgeBand = 0.14;
-		const leftEdge = Math.max(0, (edgeBand - pointerX) / edgeBand);
-		const rightEdge = Math.max(0, (pointerX - (1 - edgeBand)) / edgeBand);
-		orbitAngle = THREE.MathUtils.clamp(
-			orbitAngle + (rightEdge * rightEdge - leftEdge * leftEdge) * 0.48 * dt,
-			minCameraAngle,
-			maxCameraAngle
-		);
-		const cursorYaw = pointerInside ? (pointerX - 0.5) * 0.1 : 0;
-		const targetAngle = THREE.MathUtils.clamp(orbitAngle + cursorYaw, minCameraAngle, maxCameraAngle);
-		const cursorPitch = pointerInside ? (0.5 - pointerY) * 0.24 : 0;
-		const targetElevation = THREE.MathUtils.clamp(staticElevation + cursorPitch, 0.32, 0.9);
-		cameraAngle += (targetAngle - cameraAngle) * 0.12;
-		cameraElevation += (targetElevation - cameraElevation) * 0.12;
+		if (!touch && performance.now() > explorationUntil) exploration *= Math.exp(-2.8 * dt);
+		const ease = 1 - Math.exp(-3 * dt);
+		const yawGoal = pointerInside ? (pointerX - 0.5) * 2 * maxLookYaw : 0;
+		const pitchGoal = pointerInside ? (0.5 - pointerY) * 2 * maxLookPitch : 0;
+		lookYaw += (yawGoal - lookYaw) * ease;
+		lookPitch += (pitchGoal - lookPitch) * ease;
+		if (!vehicles[followedVehicle]) selectFollowVehicle();
+		updateFollowInput(dt);
 	}
 
 	function render() {
 		if (disposed || failed || document.hidden) return;
-		if (following) {
-			camera.position.copy(followCamera.position);
-			camera.lookAt(followCamera.target);
-		} else {
-			desiredCameraPosition.set(
-				target.x + Math.sin(cameraAngle) * cameraDistance * Math.cos(cameraElevation),
-				target.y + Math.sin(cameraElevation) * cameraDistance,
-				target.z + Math.cos(cameraAngle) * cameraDistance * Math.cos(cameraElevation)
-			);
-			camera.position.copy(desiredCameraPosition);
-			camera.lookAt(target);
-		}
+		camera.position.copy(followCamera.position);
+		camera.lookAt(followCamera.target);
 		const renderStarted = performance.now();
 		renderer.render(scene, camera);
 		renderTotalMs += performance.now() - renderStarted;
 		renderCount++;
 		if (!cameraInitialized) {
-			canvas.dataset.initialCameraYaw = cameraAngle.toFixed(3);
-			canvas.dataset.initialCameraPitch = cameraElevation.toFixed(3);
-			const tip = towerPosition.localToWorld(new THREE.Vector3(0, 45.5, 0)).project(camera);
-			const base = towerPosition.localToWorld(new THREE.Vector3()).project(camera);
-			canvas.dataset.initialCameraComposition = JSON.stringify({
-				towerTipX: (tip.x + 1) / 2,
-				towerTipY: (1 - tip.y) / 2,
-				towerHeight: (tip.y - base.y) / 2
-			});
+			canvas.dataset.initialCameraPitch = followCamera.pitch.toFixed(3);
+			canvas.dataset.initialVehicleDistance = camera.position.distanceTo(followCamera.target).toFixed(3);
 			cameraInitialized = true;
 		}
 		if (renderStarted - diagnosticsAt < 250) return;
@@ -658,28 +622,27 @@ export function createCity(
 		canvas.dataset.meanRenderMs = (renderTotalMs / renderCount).toFixed(2);
 		canvas.dataset.pixelRatio = String(renderer.getPixelRatio());
 		canvas.dataset.cameraExploration = exploration.toFixed(3);
-		if (following) {
-			const vehicle = vehicles[followedVehicle];
-			const pose = vehicle.pose;
-			vehicleProjection.set(pose.x, 0.9, pose.z).project(camera);
-			vehicleEndProjection.set(pose.x + Math.sin(pose.heading) * vehicleBodies[followedVehicle].scale[2], 0.9, pose.z + Math.cos(pose.heading) * vehicleBodies[followedVehicle].scale[2]).project(camera);
-			canvas.dataset.vehicleScreenX = ((vehicleProjection.x + 1) / 2).toFixed(3);
-			canvas.dataset.vehicleScreenY = ((1 - vehicleProjection.y) / 2).toFixed(3);
-			canvas.dataset.vehiclePixels = (Math.hypot(
-				(vehicleEndProjection.x - vehicleProjection.x) * canvas.clientWidth / 2,
-				(vehicleEndProjection.y - vehicleProjection.y) * canvas.clientHeight / 2
-			)).toFixed(1);
-			canvas.dataset.vehicleX = pose.x.toFixed(3);
-			canvas.dataset.vehicleZ = pose.z.toFixed(3);
-			canvas.dataset.cameraX = camera.position.x.toFixed(3);
-			canvas.dataset.cameraY = camera.position.y.toFixed(3);
-			canvas.dataset.cameraZ = camera.position.z.toFixed(3);
-		}
+		canvas.dataset.cameraLookYaw = lookYaw.toFixed(3);
+		canvas.dataset.cameraLookPitch = lookPitch.toFixed(3);
+		const pose = vehicles[followedVehicle].pose;
+		vehicleProjection.set(pose.x, 0.9, pose.z).project(camera);
+		vehicleEndProjection.set(pose.x + Math.sin(pose.heading) * vehicleBodies[followedVehicle].scale[2], 0.9, pose.z + Math.cos(pose.heading) * vehicleBodies[followedVehicle].scale[2]).project(camera);
+		canvas.dataset.vehicleScreenX = ((vehicleProjection.x + 1) / 2).toFixed(3);
+		canvas.dataset.vehicleScreenY = ((1 - vehicleProjection.y) / 2).toFixed(3);
+		canvas.dataset.vehiclePixels = (Math.hypot(
+			(vehicleEndProjection.x - vehicleProjection.x) * canvas.clientWidth / 2,
+			(vehicleEndProjection.y - vehicleProjection.y) * canvas.clientHeight / 2
+		)).toFixed(1);
+		canvas.dataset.vehicleX = pose.x.toFixed(3);
+		canvas.dataset.vehicleZ = pose.z.toFixed(3);
+		canvas.dataset.cameraX = camera.position.x.toFixed(3);
+		canvas.dataset.cameraY = camera.position.y.toFixed(3);
+		canvas.dataset.cameraZ = camera.position.z.toFixed(3);
+		canvas.dataset.vehicleDistance = camera.position.distanceTo(followCamera.target).toFixed(3);
 		canvas.dataset.drawCalls = String(renderer.info.render.calls);
 		canvas.dataset.triangles = String(renderer.info.render.triangles);
-		canvas.dataset.cameraYaw = cameraAngle.toFixed(3);
-		canvas.dataset.cameraPitch = cameraElevation.toFixed(3);
-		canvas.dataset.cameraRangeDegrees = String(Math.round((maxCameraAngle - minCameraAngle) * 180 / Math.PI));
+		canvas.dataset.cameraYaw = followCamera.yaw.toFixed(3);
+		canvas.dataset.cameraPitch = followCamera.pitch.toFixed(3);
 	}
 
 	function setTrafficLights(phase: number) {
@@ -746,7 +709,9 @@ export function createCity(
 		if (reduced) {
 			touch = null;
 			exploration = 0;
-			if (following) followCamera.update(vehicles[followedVehicle].pose, camera.aspect, 0, 0, true);
+			lookYaw = 0;
+			lookPitch = 0;
+			updateFollowInput(0, true);
 			render();
 			return;
 		}
@@ -791,6 +756,7 @@ export function createCity(
 	window.addEventListener('resize', onResize, { passive: true });
 	document.addEventListener('visibilitychange', schedule);
 	canvas.addEventListener('webglcontextlost', contextLost);
+	selectFollowVehicle();
 	resize(false);
 	setTheme(theme, false);
 	schedule();
@@ -803,9 +769,8 @@ export function createCity(
 				pointerX = 0.5;
 				pointerY = 0.5;
 				pointerInside = false;
-				orbitAngle = neutralAngle;
-				cameraAngle = orbitAngle;
-				cameraElevation = staticElevation;
+				lookYaw = 0;
+				lookPitch = 0;
 			}
 			schedule();
 		},

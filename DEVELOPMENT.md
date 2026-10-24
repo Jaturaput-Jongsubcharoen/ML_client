@@ -10,11 +10,15 @@
 
 ```powershell
 npm ci
-Copy-Item .env.example .env
 npm run dev
 ```
 
-`VITE_API_URL` is the public base URL of the existing Flask API, without `/predict`. The example points to the backend URL found in the currently deployed frontend bundle. No secret belongs in this frontend variable.
+Start the Flask backend first (`python app.py` in `../ML_server2`, listening on `http://127.0.0.1:5000`). `VITE_API_URL` is the public base URL of the Flask API, without `/predict`, and Vite loads it by mode:
+
+- `npm run dev` reads `.env.development`: `http://127.0.0.1:5000`
+- `npm run build` and `npm run preview` read `.env.production`: `https://ml-server2.onrender.com`
+
+A `VITE_API_URL` set in the shell, CI, Docker build argument or a git-ignored `.env.development.local` / `.env.production.local` overrides these files. No secret belongs in this frontend variable.
 
 ## Validation and production build
 
@@ -47,7 +51,7 @@ The E2E build embeds a local mock API URL. **Run `npm run build` again with your
 
 The city implementation is in `src/lib/scene/city.ts`, with the pure traffic-path math in `traffic.ts`. Its Svelte wrapper dynamically imports the renderer; no Three.js code is run during prerendering. All assets are procedural and local.
 
-Landscape uses the CN Tower overview with cursor-driven tilt and edge orbit. Portrait layouts start with a randomly selected moving vehicle framed below the landing text. Gentle horizontal swipes on the exposed landing scene adjust its follow offset temporarily; vertical scrolling and pinch zoom remain native. There are no camera buttons. Reduced-motion mode freezes traffic and camera movement, and hidden tabs stop the render loop. Geometry, traffic poses, dynamic instance buffers and device capability budgets live in `src/lib/scene/`; `vehicleCamera.ts` owns responsive framing and obstacle clearance.
+All screen sizes start with a randomly selected moving vehicle followed by an elevated diagonal chase camera; cursor movement gently swings the view around that vehicle within small bounds. Gentle horizontal swipes on the exposed landing scene adjust its follow offset temporarily; vertical scrolling and pinch zoom remain native. There are no camera buttons. Reduced-motion mode freezes traffic and camera movement, and hidden tabs stop the render loop. Geometry, traffic poses, dynamic instance buffers and device capability budgets live in `src/lib/scene/`; `vehicleCamera.ts` owns responsive framing and obstacle clearance.
 
 The cockpit keeps model state in the page, not inside the form. Metrics remain in `src/lib/data/models.ts`; do not replace them with probabilities or a different report run. Result animations must start only after a valid API response, respect reduced motion, and leave the result visible.
 
@@ -65,9 +69,9 @@ The script uses only the Python standard library. It deduplicates records by `AC
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `VITE_API_URL` | Yes for prediction | Flask backend base URL; set for local and production builds. |
+| `VITE_API_URL` | Yes for prediction | Flask backend base URL. Defaults come from `.env.development` (local Flask) and `.env.production` (Render). |
 
-The frontend contains no credentials. `.env` files are ignored by Git; `.env.example` contains the public backend URL only.
+The frontend contains no credentials. `.env` and `*.local` files are ignored by Git; the committed `.env.example`, `.env.development` and `.env.production` contain public backend URLs only.
 
 ## Render Static Site
 
