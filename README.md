@@ -2,6 +2,10 @@
 
 This frontend project is the React-based user interface for a machine learning application that predicts whether a traffic collision is likely to be fatal. It allows users to select a trained model, enter collision-related conditions, and receive a prediction from a Flask backend API.
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/9b49161c-4a4c-45a4-a33e-654aedb9d0e5" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5c629ec8-7173-4035-bdac-a946c074a083" />
+
+
 ## Live Project
 
 - Live demo: https://machine-learning-collision-fatality.onrender.com/
@@ -12,7 +16,11 @@ This frontend project is the React-based user interface for a machine learning a
 The application was built to demonstrate how supervised machine learning can support road safety analysis. Users can interact with the app by choosing from several classification models such as Random Forest, KNN, SVM, Neural Networks, and Logistic Regression. The app then sends user-selected road, driver, and environmental conditions to the backend API and returns a binary prediction:
 
 - 1 = Fatal collision
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/31b8470b-b2c9-45d6-8cad-397fd966cb7c" />
+
 - 0 = Non-fatal collision
+<img width="1918" height="1080" alt="image" src="https://github.com/user-attachments/assets/3d3801ad-879f-4649-8890-7a5b5a088a89" />
+
 
 ## Skills Demonstrated
 
