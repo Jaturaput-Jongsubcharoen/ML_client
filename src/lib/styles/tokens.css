@@ -1,0 +1,44 @@
+:root,
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--color-bg: #101113;
+	--color-surface: #191b1e;
+	--color-surface-raised: #202327;
+	--color-text: #f1f1ed;
+	--color-muted: #b0b4b7;
+	--color-border: #35383d;
+	--color-accent: #c56b58;
+	--color-accent-soft: #3a2724;
+	--color-success: #a2b7a2;
+	--color-danger: #e09586;
+	--color-map-water: #18242a;
+	--shadow-card: 0 22px 65px rgb(0 0 0 / 22%);
+	--focus-ring: 0 0 0 3px rgb(197 107 88 / 42%);
+}
+
+:root[data-theme='light'] {
+	color-scheme: light;
+	--color-bg: #f3f2ee;
+	--color-surface: #fff;
+	--color-surface-raised: #eae9e4;
+	--color-text: #17191c;
+	--color-muted: #565b61;
+	--color-border: #d5d6d2;
+	--color-accent: #a94e3d;
+	--color-accent-soft: #f2e5e1;
+	--color-success: #3e694d;
+	--color-danger: #9d4336;
+	--color-map-water: #dce8e9;
+	--shadow-card: 0 22px 65px rgb(28 30 32 / 9%);
+	--focus-ring: 0 0 0 3px rgb(169 78 61 / 28%);
+}
+
+:root {
+	font-family:
+		Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	font-optical-sizing: auto;
+}
