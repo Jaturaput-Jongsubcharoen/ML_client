@@ -123,6 +123,8 @@ test('all five modes update four exact gauges immediately and persist into the f
 });
 
 test('field Detail dialogs cover every input, track current values, and restore focus', async ({ page }) => {
+	// Opens all 17 dialogs while the software-rendered city runs; ~1 s per click on loaded CI hosts.
+	test.slow();
 	await page.setViewportSize({ width: 280, height: 740 });
 	const detailButtons = page.locator('.detail-button');
 	await expect(detailButtons).toHaveCount(17);
