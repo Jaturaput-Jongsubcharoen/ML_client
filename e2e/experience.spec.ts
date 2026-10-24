@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { usesVehicleCamera } from '../src/lib/scene/vehicleCamera';
+import { followFraming } from '../src/lib/scene/vehicleCamera';
 
-// Playwright's virtual mouse starts at (0, 0), inside the top-left orbit band. Some headless
+// Playwright's virtual mouse starts at (0, 0), a full cursor look offset. Some headless
 // Chromium builds dispatch that position to the page, so park it at the neutral centre first.
 async function parkPointerAtCentre(page: Page, width: number, height: number) {
 	await page.setViewportSize({ width, height });
@@ -66,113 +66,94 @@ test('one fixed city scene remains behind the page and dims after the landing', 
 	expect(errors).toEqual([]);
 });
 
-test('city camera tracks viewport edges within a wide, bounded orbit', async ({ page }) => {
-	// Edge orbit advances in simulated time capped per frame; allow slow software-rendered CI frames.
+test('cursor gently swings the chase camera around the followed vehicle within bounds', async ({ page }) => {
+	// Look offsets ease in simulated time capped per frame; allow slow software-rendered CI frames.
 	test.setTimeout(120_000);
 	await parkPointerAtCentre(page, 1440, 900);
 	await page.goto('/');
 	const canvas = page.locator('.city canvas');
 	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
-	await expect(canvas).toHaveAttribute('data-camera-mode', 'overview');
-	const initialYaw = Number(await canvas.getAttribute('data-initial-camera-yaw'));
-	const initialPitch = Number(await canvas.getAttribute('data-initial-camera-pitch'));
-	expect(initialYaw).toBe(0.65);
-	expect(initialPitch).toBe(0.6);
-	await expect(canvas).toHaveAttribute('data-camera-yaw', '0.650');
-	await expect(canvas).toHaveAttribute('data-camera-pitch', '0.600');
-	const rangeDegrees = await cameraNumber(canvas, 'camera-range-degrees');
-	expect(rangeDegrees).toBeGreaterThan(180);
-	const halfRange = (rangeDegrees / 2) * Math.PI / 180;
-	const expectYawWithinOrbit = async () => {
-		const yaw = await cameraNumber(canvas, 'camera-yaw');
-		expect(yaw).toBeGreaterThanOrEqual(initialYaw - halfRange - 0.002);
-		expect(yaw).toBeLessThanOrEqual(initialYaw + halfRange + 0.002);
-		return yaw;
-	};
+	await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
+	const followed = await canvas.getAttribute('data-follow-vehicle');
 	const movement = { timeout: 30_000 };
-
-	await page.mouse.move(2, 450);
-	await expect.poll(() => cameraNumber(canvas, 'camera-yaw'), movement).toBeLessThan(initialYaw - 0.35);
-	const leftYaw = await expectYawWithinOrbit();
+	const centreX = 0.5 + followFraming(1440 / 900).frameShift;
+	const expectStillFollowing = async () => {
+		await expect(canvas).toHaveAttribute('data-follow-vehicle', followed!);
+		const x = await cameraNumber(canvas, 'vehicle-screen-x');
+		const y = await cameraNumber(canvas, 'vehicle-screen-y');
+		expect(Math.abs(x - centreX)).toBeLessThan(0.2);
+		expect(y).toBeGreaterThan(0.5);
+		expect(y).toBeLessThan(0.8);
+		const pitch = await cameraNumber(canvas, 'camera-pitch');
+		expect(pitch).toBeGreaterThanOrEqual(0.4);
+		expect(pitch).toBeLessThanOrEqual(1.45);
+		expect(await cameraNumber(canvas, 'vehicle-distance')).toBeLessThanOrEqual(40.01);
+	};
+	await waitForRenderedFrames(canvas, 4);
+	expect(Math.abs(await cameraNumber(canvas, 'camera-look-yaw'))).toBeLessThan(0.02);
+	expect(Math.abs(await cameraNumber(canvas, 'camera-look-pitch'))).toBeLessThan(0.02);
 
 	await page.mouse.move(1438, 450);
-	await expect.poll(() => cameraNumber(canvas, 'camera-yaw'), movement).toBeGreaterThan(leftYaw + 0.6);
-	await expectYawWithinOrbit();
+	await expect.poll(() => cameraNumber(canvas, 'camera-look-yaw'), movement).toBeGreaterThan(0.08);
+	expect(await cameraNumber(canvas, 'camera-look-yaw')).toBeLessThanOrEqual(0.12);
+	await expectStillFollowing();
+
+	await page.mouse.move(2, 450);
+	await expect.poll(() => cameraNumber(canvas, 'camera-look-yaw'), movement).toBeLessThan(-0.08);
+	expect(await cameraNumber(canvas, 'camera-look-yaw')).toBeGreaterThanOrEqual(-0.12);
+	await expectStillFollowing();
 
 	await page.mouse.move(720, 1);
-	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeGreaterThan(initialPitch + 0.04);
-	const upperPitch = await cameraNumber(canvas, 'camera-pitch');
-	expect(upperPitch).toBeLessThanOrEqual(0.9);
+	await expect.poll(() => cameraNumber(canvas, 'camera-look-pitch'), movement).toBeGreaterThan(0.06);
+	expect(await cameraNumber(canvas, 'camera-look-pitch')).toBeLessThanOrEqual(0.1);
+	await expectStillFollowing();
 
-	await page.mouse.move(720, 899);
-	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeLessThan(upperPitch - 0.08);
-	const lowerPitch = await cameraNumber(canvas, 'camera-pitch');
-	expect(lowerPitch).toBeGreaterThanOrEqual(0.32);
-
-	// Centring stops edge motion: pitch eases back to neutral while accumulated edge yaw is kept.
+	// Centring the cursor eases the boom back to the neutral chase angle behind the vehicle.
 	await page.mouse.move(720, 450);
-	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeCloseTo(initialPitch, 2);
-	let settledYaw = Number.NaN;
-	await expect.poll(async () => {
-		const before = await cameraNumber(canvas, 'camera-yaw');
-		await waitForRenderedFrames(canvas, 4);
-		settledYaw = await cameraNumber(canvas, 'camera-yaw');
-		return Math.abs(settledYaw - before);
-	}, movement).toBeLessThan(0.006);
-	await expectYawWithinOrbit();
-	expect(settledYaw).toBeGreaterThan(leftYaw + 0.5);
-	await waitForRenderedFrames(canvas, 6);
-	expect(await cameraNumber(canvas, 'camera-yaw')).toBeCloseTo(settledYaw, 2);
-
-	await page.setViewportSize({ width: 390, height: 844 });
-	await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(390);
-	await expect.poll(async () => canvas.evaluate((node) => node.clientHeight)).toBe(844);
+	await expect.poll(async () => Math.abs(await cameraNumber(canvas, 'camera-look-yaw')), movement).toBeLessThan(0.01);
+	await expect.poll(async () => Math.abs(await cameraNumber(canvas, 'camera-look-pitch')), movement).toBeLessThan(0.01);
+	await expectStillFollowing();
 });
 
 for (const [width, height] of [
 	[3440, 1440], [1920, 1080], [1440, 900], [1423, 675], [1024, 768],
 	[768, 1024], [844, 390], [540, 720], [430, 932], [390, 844], [360, 800], [280, 740]
 ]) {
-	test(`city starts in its responsive camera mode at ${width}x${height}`, async ({ page }) => {
+	test(`city follows a vehicle with a responsive chase camera at ${width}x${height}`, async ({ page }) => {
+		// Huge software-rendered canvases are slow on CI.
+		if (width * height > 3_000_000) test.setTimeout(120_000);
 		await parkPointerAtCentre(page, width, height);
 		await page.goto('/');
 		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
 		const canvas = page.locator('.city canvas');
-		const followsVehicle = usesVehicleCamera(width, height);
-		await expect(canvas).toHaveAttribute('data-camera-mode', followsVehicle ? 'vehicle' : 'overview');
-		await expect(canvas).toHaveAttribute('data-initial-camera-yaw', '0.650');
-		await expect(canvas).toHaveAttribute('data-initial-camera-pitch', '0.600');
-		await expect(canvas).toHaveAttribute('data-building-count', '72');
-		if (width === 1423) {
-			const composition = await canvas.evaluate((node) => {
-				const value = (node as HTMLCanvasElement).dataset.initialCameraComposition;
-				if (!value) throw new Error('Initial camera composition was not captured');
-				return JSON.parse(value) as { towerTipX: number; towerTipY: number; towerHeight: number };
-			});
-			expect(composition.towerTipX).toBeGreaterThan(0.18);
-			expect(composition.towerTipX).toBeLessThan(0.3);
-			expect(composition.towerTipY).toBeGreaterThan(0.15);
-			expect(composition.towerTipY).toBeLessThan(0.35);
-			expect(composition.towerHeight).toBeGreaterThan(0.32);
-		}
-		const distance = Number(await canvas.getAttribute('data-camera-distance'));
-		if (followsVehicle) {
-			expect(distance).toBeGreaterThan(38);
-			expect(distance).toBeLessThan(50);
-			expect(Number(await canvas.getAttribute('data-vehicle-pixels'))).toBeGreaterThan(15);
-		} else {
-			expect(distance).toBeGreaterThan(250);
-		}
-		// With the pointer neutral, the live camera must hold the first-frame pose across rendered frames.
+		await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
+		const followed = await canvas.getAttribute('data-follow-vehicle');
+		expect(Number(followed)).toBeGreaterThanOrEqual(0);
+		// The very first frame is already the elevated diagonal chase pose, never a map view.
+		const initialPitch = await cameraNumber(canvas, 'initial-camera-pitch');
+		expect(initialPitch).toBeGreaterThanOrEqual(0.5);
+		expect(initialPitch).toBeLessThanOrEqual(1.45);
+		const framingDistance = await cameraNumber(canvas, 'camera-distance');
+		expect(framingDistance).toBeGreaterThanOrEqual(34);
+		expect(framingDistance).toBeLessThanOrEqual(40);
+		const initialDistance = await cameraNumber(canvas, 'initial-vehicle-distance');
+		expect(initialDistance).toBeGreaterThan(10);
+		expect(initialDistance).toBeLessThanOrEqual(framingDistance + 0.01);
 		await waitForRenderedFrames(canvas, 6);
-		expect(await canvas.getAttribute('data-camera-yaw')).toBe('0.650');
-		expect(await canvas.getAttribute('data-camera-pitch')).toBe('0.600');
-		expect(Number(await canvas.getAttribute('data-camera-distance'))).toBe(distance);
+		expect(await cameraNumber(canvas, 'vehicle-pixels')).toBeGreaterThan(15);
+		const centreX = 0.5 + followFraming(width / height).frameShift;
+		expect(Math.abs(await cameraNumber(canvas, 'vehicle-screen-x') - centreX)).toBeLessThan(0.15);
+		expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+
 		await page.setViewportSize({ width: height, height: width });
 		await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(height);
 		await page.setViewportSize({ width, height });
-		await expect(canvas).toHaveAttribute('data-camera-mode', followsVehicle ? 'vehicle' : 'overview');
-		if (!followsVehicle) await expect.poll(async () => Number(await canvas.getAttribute('data-camera-distance'))).toBe(distance);
+		await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(width);
+		await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
+		await expect(canvas).toHaveAttribute('data-follow-vehicle', followed!);
+		await expect.poll(() => cameraNumber(canvas, 'camera-distance')).toBe(framingDistance);
+		await waitForRenderedFrames(canvas, 6);
+		expect(Math.abs(await cameraNumber(canvas, 'vehicle-screen-x') - centreX)).toBeLessThan(0.2);
 	});
 }
 

@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { followFraming } from '../src/lib/scene/vehicleCamera';
 
-for (const [width, height] of [[375, 812], [400, 824], [412, 915], [430, 932], [540, 720], [768, 1024], [1024, 1366]]) {
-	test(`portrait vehicle visibility and rendering budget at ${width}x${height}`, async ({ page }, testInfo) => {
+for (const [width, height] of [
+	[375, 812], [400, 824], [412, 915], [430, 932], [540, 720], [768, 1024], [1024, 1366],
+	[844, 390], [1024, 768], [1440, 900], [1920, 1080], [3440, 1440]
+]) {
+	test(`vehicle visibility and rendering budget at ${width}x${height}`, async ({ page }, testInfo) => {
+		// Huge software-rendered canvases are slow on CI.
+		if (width * height > 3_000_000) test.setTimeout(120_000);
+		const centreX = 0.5 + followFraming(width / height).frameShift;
 		await page.setViewportSize({ width, height });
 		await page.goto('/');
 		const canvas = page.locator('.city canvas');
@@ -19,17 +26,17 @@ for (const [width, height] of [[375, 812], [400, 824], [412, 915], [430, 932], [
 			};
 		});
 		const initial = await snapshot();
-		expect(initial.x).toBeGreaterThan(0.4);
-		expect(initial.x).toBeLessThan(0.6);
+		expect(Math.abs(initial.x - centreX)).toBeLessThan(0.1);
 		expect(initial.y).toBeGreaterThan(0.6);
 		expect(initial.y).toBeLessThan(0.75);
 		expect(initial.pixels).toBeGreaterThan(18);
 		expect(initial.vehicles).toBeGreaterThanOrEqual(12);
 		expect(initial.calls).toBeLessThanOrEqual(30);
 		expect(initial.triangles).toBeLessThan(60_000);
-		expect(initial.dpr).toBeLessThanOrEqual(width <= 640 ? 1 : 1.1);
-		const copyBottom = await page.locator('.hero-copy').evaluate((node) => node.getBoundingClientRect().bottom);
-		expect(initial.y * height).toBeGreaterThan(copyBottom + 20);
+		expect(initial.dpr).toBeLessThanOrEqual(width <= 640 ? 1 : width <= 1100 ? 1.1 : 1.25);
+		// The followed vehicle stays clear of the landing copy: below it, or beside it on wide screens.
+		const copy = await page.locator('.hero-copy').evaluate((node) => node.getBoundingClientRect().toJSON() as DOMRect);
+		expect(initial.y * height > copy.bottom + 20 || initial.x * width > copy.right + 20).toBe(true);
 		await expect(page.getByRole('link', { name: 'Enter the model cockpit' })).toBeVisible();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 		await expect.poll(async () => {
@@ -37,8 +44,7 @@ for (const [width, height] of [[375, 812], [400, 824], [412, 915], [430, 932], [
 			return Math.hypot(current.vehicleX - initial.vehicleX, current.vehicleZ - initial.vehicleZ);
 		}).toBeGreaterThan(2);
 		const moving = await snapshot();
-		expect(moving.x).toBeGreaterThan(0.35);
-		expect(moving.x).toBeLessThan(0.65);
+		expect(Math.abs(moving.x - centreX)).toBeLessThan(0.15);
 		expect(moving.y).toBeGreaterThan(0.58);
 		expect(moving.y).toBeLessThan(0.76);
 		const selected = await canvas.getAttribute('data-follow-vehicle');
@@ -48,7 +54,7 @@ for (const [width, height] of [[375, 812], [400, 824], [412, 915], [430, 932], [
 		await expect(page.getByRole('button', { name: 'Select Random Forest', exact: true })).toHaveAttribute('aria-pressed', 'true');
 		expect(await page.locator('#latitude').inputValue()).toBe('43.7');
 		console.log(JSON.stringify({ viewport: `${width}x${height}`, initMs: await page.locator('.city').getAttribute('data-init-ms'), ...initial }));
-		if (width === 400) await page.screenshot({ path: testInfo.outputPath('mobile-follow.png') });
+		if (width === 400 || width === 1920) await page.screenshot({ path: testInfo.outputPath(`follow-${width}x${height}.png`) });
 	});
 }
 
