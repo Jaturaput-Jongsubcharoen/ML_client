@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TorontoCityScene from '../lib/components/TorontoCityScene.svelte';
+	import IntroOverlay from '../lib/components/IntroOverlay.svelte';
 	import ModelCockpit from '../lib/components/ModelCockpit.svelte';
 	import PredictionWorkspace from '../lib/components/PredictionWorkspace.svelte';
 	import RoadMark from '../lib/components/RoadMark.svelte';
@@ -17,6 +18,7 @@
 	}
 	let theme = $state<Theme>('dark');
 	let isTransitioning = $state(false);
+	let sceneReady = $state(false);
 	onMount(() => {
 		const savedTheme = document.documentElement.dataset.theme;
 		theme = savedTheme === 'light' ? 'light' : 'dark';
@@ -70,7 +72,7 @@
 </script>
 
 <svelte:head>
-	<title>Collision Fatality Prediction — Toronto</title>
+	<title>Collision Fatality Prediction / Toronto / Canada</title>
 	<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 	<meta
 		name="description"
@@ -79,7 +81,8 @@
 </svelte:head>
 
 <div class="page-shell">
-	<TorontoCityScene {theme} />
+	<TorontoCityScene {theme} onSceneReady={() => (sceneReady = true)} />
+	<IntroOverlay {sceneReady} />
 	<a class="skip-link" href="#main-content">Skip to main content</a>
 	<SiteNav {theme} onThemeToggle={toggleTheme} />
 

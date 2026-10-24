@@ -18,6 +18,12 @@
 				console.error('Unable to read the saved theme preference.', error);
 				document.documentElement.dataset.theme = 'dark';
 			}
+			// Start the intro before first paint; release it if the app never mounts to take it over.
+			document.documentElement.dataset.intro = 'loading';
+			setTimeout(function () {
+				var root = document.documentElement;
+				if (root.dataset.introOwner !== 'app') delete root.dataset.intro;
+			}, 12000);
 		</script>
 		%sveltekit.head%
 	</head>

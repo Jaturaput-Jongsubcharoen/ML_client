@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { waitForApp } from './helpers';
 import { followFraming } from '../src/lib/scene/vehicleCamera';
 
 // Playwright's virtual mouse starts at (0, 0), a full cursor look offset. Some headless
@@ -23,7 +24,7 @@ test('one fixed city scene remains behind the page and dims after the landing', 
 	const errors: string[] = [];
 	page.on('pageerror', (error) => errors.push(error.message));
 	await page.goto('/');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	expect(Number(await page.locator('.city').getAttribute('data-init-ms'))).toBeGreaterThan(0);
 	const heading = page.locator('#models .section-heading h2');
 	const supporting = page.locator('#models .section-heading p');
@@ -72,7 +73,7 @@ test('cursor gently swings the chase camera around the followed vehicle within b
 	await parkPointerAtCentre(page, 1440, 900);
 	await page.goto('/');
 	const canvas = page.locator('.city canvas');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
 	const followed = await canvas.getAttribute('data-follow-vehicle');
 	const movement = { timeout: 30_000 };
@@ -124,7 +125,7 @@ for (const [width, height] of [
 		if (width * height > 3_000_000) test.setTimeout(120_000);
 		await parkPointerAtCentre(page, width, height);
 		await page.goto('/');
-		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+		await waitForApp(page);
 		const canvas = page.locator('.city canvas');
 		await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
 		const followed = await canvas.getAttribute('data-follow-vehicle');
@@ -160,7 +161,7 @@ for (const [width, height] of [
 test('theme persists, reduced motion pauses city and removes result effects', async ({ page }) => {
 	await page.emulateMedia({ reducedMotion: 'reduce' });
 	await page.goto('/');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	await expect(page.locator('.city')).toHaveAttribute('data-motion', 'reduced');
 	await expect(page.locator('.scene-controls')).toHaveCount(0);
 	const bounds = await page.locator('.city canvas').boundingBox();
@@ -172,6 +173,7 @@ test('theme persists, reduced motion pauses city and removes result effects', as
 	await expect(page.locator('html')).toHaveAttribute('data-theme', original === 'dark' ? 'light' : 'dark');
 	expect((await page.screenshot({ clip: backgroundRegion })).equals(originalScene)).toBe(false);
 	await page.reload();
+	await waitForApp(page);
 	await expect(page.locator('html')).toHaveAttribute('data-theme', original === 'dark' ? 'light' : 'dark');
 	await page.route('**/predict', (route) => route.fulfill({ json: { model: 'random_forest', prediction: 1 } }));
 	await page.getByRole('button', { name: 'Request prediction' }).click();
@@ -191,6 +193,8 @@ test('WebGL unavailable fallback preserves prediction inputs and model selection
 	});
 	await page.goto('/');
 	await expect(page.locator('.city [role="status"]')).toContainText('Interactive 3D is unavailable');
+	// Without WebGL the intro must still release instead of waiting for a first frame.
+	await waitForApp(page, { city: false });
 	await page.getByRole('button', { name: 'Select Logistic Regression', exact: true }).click();
 	await expect(page.locator('#customize .form-topline')).toContainText('Logistic Regression');
 	await page.route('**/predict', (route) => route.fulfill({ json: { model: 'logistic_regression', prediction: 0 } }));

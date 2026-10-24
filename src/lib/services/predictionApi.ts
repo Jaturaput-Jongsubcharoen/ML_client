@@ -1,4 +1,5 @@
 import type { ModelId, PredictionPayload, PredictionResponse } from '../types';
+import { getApiBaseUrl } from './apiBase';
 
 const REQUEST_TIMEOUT_MS = 90_000;
 
@@ -9,7 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function requestPrediction(
 	payload: PredictionPayload
 ): Promise<PredictionResponse> {
-	const baseUrl = import.meta.env.VITE_API_URL?.trim();
+	const baseUrl = getApiBaseUrl();
 	if (!baseUrl) {
 		throw new Error('Prediction service is not configured. Set VITE_API_URL for this deployment.');
 	}
@@ -19,7 +20,7 @@ export async function requestPrediction(
 	let response: Response;
 
 	try {
-		response = await fetch(`${baseUrl.replace(/\/+$/, '')}/predict`, {
+		response = await fetch(`${baseUrl}/predict`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload),

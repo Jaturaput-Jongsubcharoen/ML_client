@@ -13,6 +13,7 @@ src/
   app.html
   lib/
     components/
+      IntroOverlay.svelte
       TorontoCityScene.svelte
       ModelCockpit.svelte
       PerformanceGauge.svelte
@@ -26,12 +27,17 @@ src/
       features.ts
       models.ts
     services/
+      apiBase.ts
+      apiHealth.ts
       predictionApi.ts
+    intro/
+      introTiming.ts
     scene/
       city.ts
       traffic.ts
     styles/
       global.css
+      intro.css
       tokens.css
     types.ts
   routes/
@@ -42,6 +48,8 @@ static/
   data/toronto-collision-density.json
 scripts/build-map-data.py
 e2e/
+  helpers.ts
+  intro.spec.ts
   experience.spec.ts
   prediction.spec.ts
   layout-map.spec.ts
@@ -85,6 +93,13 @@ Performance boundaries:
 - WebGL initialization/context-loss errors are logged and surfaced; the rest of the page remains functional.
 
 The stylized grid, shoreline and observation spire are Toronto-inspired, not verified architectural footprints or an exact geospatial model.
+
+## Intro readiness flow
+
+1. The inline script in `app.html` sets `html[data-intro="loading"]` before first paint and arms a 12-second failsafe that clears it if the app never takes ownership (`data-intro-owner="app"`).
+2. `city.ts` calls an `onFirstFrame` callback once, after the first successful `renderer.render` with an initialised camera. `TorontoCityScene` forwards it as `onSceneReady` (also on WebGL failure) and marks `.city[data-first-frame="true"]`.
+3. `IntroOverlay` polls the pure `shouldReleaseIntro` rule in `intro/introTiming.ts`: minimum entrance and hold time, then the first frame, then up to about one extra second for the API check, with an 8-second hard timeout. It then advances `moving` → `revealing` → removed with fixed timers, not `transitionend`.
+4. `apiHealth.ts` sends one `GET /` to the same `VITE_API_URL` used by `predictionApi.ts` (shared through `apiBase.ts`). It never throws; its result is recorded as `html[data-api-status]` (`ready`, `unavailable`, `unconfigured`, or `waking` if still pending) and does not change the prediction contract or its error/retry UI. On Render the probe also starts waking a sleeping instance.
 
 ## Validation boundaries
 
