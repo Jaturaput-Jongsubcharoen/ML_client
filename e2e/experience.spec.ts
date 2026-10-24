@@ -1,5 +1,23 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { usesVehicleCamera } from '../src/lib/scene/vehicleCamera';
+
+// Playwright's virtual mouse starts at (0, 0), inside the top-left orbit band. Some headless
+// Chromium builds dispatch that position to the page, so park it at the neutral centre first.
+async function parkPointerAtCentre(page: Page, width: number, height: number) {
+	await page.setViewportSize({ width, height });
+	await page.mouse.move(Math.round(width / 2), Math.round(height / 2));
+}
+
+async function cameraNumber(canvas: Locator, name: string) {
+	return Number(await canvas.getAttribute(`data-${name}`));
+}
+
+// Software WebGL on CI can render only a few frames per second, so wait on rendered frames
+// rather than wall-clock time when asserting a state is stable.
+async function waitForRenderedFrames(canvas: Locator, frames: number) {
+	const start = await cameraNumber(canvas, 'render-count');
+	await expect.poll(() => cameraNumber(canvas, 'render-count'), { timeout: 20_000 }).toBeGreaterThanOrEqual(start + frames);
+}
 
 test('one fixed city scene remains behind the page and dims after the landing', async ({ page }) => {
 	const errors: string[] = [];
@@ -49,43 +67,62 @@ test('one fixed city scene remains behind the page and dims after the landing', 
 });
 
 test('city camera tracks viewport edges within a wide, bounded orbit', async ({ page }) => {
-	await page.setViewportSize({ width: 1440, height: 900 });
+	// Edge orbit advances in simulated time capped per frame; allow slow software-rendered CI frames.
+	test.setTimeout(120_000);
+	await parkPointerAtCentre(page, 1440, 900);
 	await page.goto('/');
 	const canvas = page.locator('.city canvas');
 	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
-	const initialYaw = Number(await canvas.getAttribute('data-camera-yaw'));
-	const initialPitch = Number(await canvas.getAttribute('data-camera-pitch'));
-	expect(Number(await canvas.getAttribute('data-camera-range-degrees'))).toBeGreaterThan(180);
+	await expect(canvas).toHaveAttribute('data-camera-mode', 'overview');
+	const initialYaw = Number(await canvas.getAttribute('data-initial-camera-yaw'));
+	const initialPitch = Number(await canvas.getAttribute('data-initial-camera-pitch'));
+	expect(initialYaw).toBe(0.65);
+	expect(initialPitch).toBe(0.6);
+	await expect(canvas).toHaveAttribute('data-camera-yaw', '0.650');
+	await expect(canvas).toHaveAttribute('data-camera-pitch', '0.600');
+	const rangeDegrees = await cameraNumber(canvas, 'camera-range-degrees');
+	expect(rangeDegrees).toBeGreaterThan(180);
+	const halfRange = (rangeDegrees / 2) * Math.PI / 180;
+	const expectYawWithinOrbit = async () => {
+		const yaw = await cameraNumber(canvas, 'camera-yaw');
+		expect(yaw).toBeGreaterThanOrEqual(initialYaw - halfRange - 0.002);
+		expect(yaw).toBeLessThanOrEqual(initialYaw + halfRange + 0.002);
+		return yaw;
+	};
+	const movement = { timeout: 30_000 };
 
 	await page.mouse.move(2, 450);
-	await expect.poll(async () => Number(await canvas.getAttribute('data-camera-yaw')), {
-		timeout: 3000
-	}).toBeLessThan(initialYaw - 0.35);
-	const leftYaw = Number(await canvas.getAttribute('data-camera-yaw'));
+	await expect.poll(() => cameraNumber(canvas, 'camera-yaw'), movement).toBeLessThan(initialYaw - 0.35);
+	const leftYaw = await expectYawWithinOrbit();
 
 	await page.mouse.move(1438, 450);
-	await expect.poll(async () => Number(await canvas.getAttribute('data-camera-yaw')), {
-		timeout: 3000
-	}).toBeGreaterThan(leftYaw + 0.6);
+	await expect.poll(() => cameraNumber(canvas, 'camera-yaw'), movement).toBeGreaterThan(leftYaw + 0.6);
+	await expectYawWithinOrbit();
 
 	await page.mouse.move(720, 1);
-	await expect.poll(async () => Number(await canvas.getAttribute('data-camera-pitch')), {
-		timeout: 2500
-	}).toBeGreaterThan(initialPitch + 0.04);
-	const upperPitch = Number(await canvas.getAttribute('data-camera-pitch'));
+	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeGreaterThan(initialPitch + 0.04);
+	const upperPitch = await cameraNumber(canvas, 'camera-pitch');
+	expect(upperPitch).toBeLessThanOrEqual(0.9);
 
 	await page.mouse.move(720, 899);
-	await expect.poll(async () => Number(await canvas.getAttribute('data-camera-pitch')), {
-		timeout: 2500
-	}).toBeLessThan(upperPitch - 0.08);
-	const lowerPitch = Number(await canvas.getAttribute('data-camera-pitch'));
-	expect(lowerPitch).toBeGreaterThan(0);
+	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeLessThan(upperPitch - 0.08);
+	const lowerPitch = await cameraNumber(canvas, 'camera-pitch');
+	expect(lowerPitch).toBeGreaterThanOrEqual(0.32);
 
+	// Centring stops edge motion: pitch eases back to neutral while accumulated edge yaw is kept.
 	await page.mouse.move(720, 450);
-	await expect.poll(async () => Number(await canvas.getAttribute('data-camera-pitch'))).toBeCloseTo(initialPitch, 2);
-	const centeredYaw = Number(await canvas.getAttribute('data-camera-yaw'));
-	await page.waitForTimeout(300);
-	expect(Number(await canvas.getAttribute('data-camera-yaw'))).toBeCloseTo(centeredYaw, 2);
+	await expect.poll(() => cameraNumber(canvas, 'camera-pitch'), movement).toBeCloseTo(initialPitch, 2);
+	let settledYaw = Number.NaN;
+	await expect.poll(async () => {
+		const before = await cameraNumber(canvas, 'camera-yaw');
+		await waitForRenderedFrames(canvas, 4);
+		settledYaw = await cameraNumber(canvas, 'camera-yaw');
+		return Math.abs(settledYaw - before);
+	}, movement).toBeLessThan(0.006);
+	await expectYawWithinOrbit();
+	expect(settledYaw).toBeGreaterThan(leftYaw + 0.5);
+	await waitForRenderedFrames(canvas, 6);
+	expect(await cameraNumber(canvas, 'camera-yaw')).toBeCloseTo(settledYaw, 2);
 
 	await page.setViewportSize({ width: 390, height: 844 });
 	await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(390);
@@ -97,7 +134,7 @@ for (const [width, height] of [
 	[768, 1024], [844, 390], [540, 720], [430, 932], [390, 844], [360, 800], [280, 740]
 ]) {
 	test(`city starts in its responsive camera mode at ${width}x${height}`, async ({ page }) => {
-		await page.setViewportSize({ width, height });
+		await parkPointerAtCentre(page, width, height);
 		await page.goto('/');
 		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
 		const canvas = page.locator('.city canvas');
@@ -126,9 +163,10 @@ for (const [width, height] of [
 		} else {
 			expect(distance).toBeGreaterThan(250);
 		}
-		await page.waitForTimeout(300);
-		await expect(canvas).toHaveAttribute('data-camera-yaw', '0.650');
-		await expect(canvas).toHaveAttribute('data-camera-pitch', '0.600');
+		// With the pointer neutral, the live camera must hold the first-frame pose across rendered frames.
+		await waitForRenderedFrames(canvas, 6);
+		expect(await canvas.getAttribute('data-camera-yaw')).toBe('0.650');
+		expect(await canvas.getAttribute('data-camera-pitch')).toBe('0.600');
 		expect(Number(await canvas.getAttribute('data-camera-distance'))).toBe(distance);
 		await page.setViewportSize({ width: height, height: width });
 		await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(height);
