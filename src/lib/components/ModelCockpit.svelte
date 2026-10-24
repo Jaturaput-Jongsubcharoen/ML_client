@@ -53,7 +53,7 @@
 				<div class="cockpit-response" aria-hidden="true"></div>
 			{/key}
 		{/if}
-		<div class="cockpit-bottom"><span>Selected / {modelNames[selectedModel]}</span><a href="#customize">Configure collision conditions <span aria-hidden="true">↓</span></a></div>
+		<div class="cockpit-bottom"><span>Selected / {modelNames[selectedModel]}</span><a href="#prediction">Predict with selected model <span aria-hidden="true">↓</span></a></div>
 	</div>
 </section>
 

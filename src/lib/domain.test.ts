@@ -7,6 +7,19 @@ import {
 } from './data/features';
 
 describe('prediction input mapping', () => {
+	it('starts with a valid, independent sample and exactly one active category per field', () => {
+		const sample = createDefaultInputs();
+		expect(validatePredictionInput(sample)).toEqual({});
+		const payload = buildPredictionPayload('random_forest', sample);
+		for (const [field, options] of Object.entries(featureOptions)) {
+			expect(options.reduce((total, option) => total + payload.input[`${field}_${option}`], 0)).toBe(1);
+		}
+		sample.categorical.ROAD_CLASS = 'Expressway';
+		sample.latitude = '43.65';
+		expect(createDefaultInputs().categorical.ROAD_CLASS).toBe('Collector');
+		expect(createDefaultInputs().latitude).toBe('43.7');
+	});
+
 	it('encodes every existing category and includes numeric Toronto coordinates', () => {
 		const input = createDefaultInputs();
 		const payload = buildPredictionPayload('random_forest', input);

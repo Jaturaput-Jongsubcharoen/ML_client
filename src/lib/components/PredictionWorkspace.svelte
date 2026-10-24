@@ -39,6 +39,11 @@
 			return;
 		}
 
+		if (event.submitter?.id === 'predict-customized') {
+			document.getElementById('prediction-heading')?.focus({ preventScroll: true });
+			document.getElementById('prediction')?.scrollIntoView({ block: 'start' });
+		}
+
 		isLoading = true;
 		errorMessage = '';
 		result = null;
@@ -70,9 +75,53 @@
 </script>
 
 <form class="prediction-form" onsubmit={handleSubmit} novalidate aria-label="Collision classification">
+<section class="prediction-action" id="prediction" aria-labelledby="prediction-heading" aria-busy={isLoading}>
+	<div class="section-heading">
+		<span class="eyebrow">03 / Predict &amp; view result</span>
+		<h2 id="prediction-heading" tabindex="-1">Read the classification.</h2>
+		<p>Use the selected model to classify a sample Toronto collision record instantly, or customize the conditions below before predicting.</p>
+		<p class="prediction-caveat">The result is a binary classification based on historical collision data, not a probability or future safety forecast.</p>
+	</div>
+	<div class="submit-row">
+		<button id="request-prediction" class="button button-primary" type="submit" disabled={isLoading}>
+			{#if isLoading}
+				<span class="spinner" aria-hidden="true"></span>
+				Waiting for model…
+			{:else}
+				Request Prediction <span aria-hidden="true">↗</span>
+			{/if}
+		</button>
+		<a href="#customize" class="button button-customize">Customize Conditions <span aria-hidden="true">↓</span></a>
+	</div>
+	<p class="submit-note">Selected classifier / {modelNames[selectedModel]}. Prediction is served by the existing Flask API.</p>
+
+	{#if isLoading}
+		<p class="status loading" role="status" aria-live="polite">
+			Connecting to the model service. Its first response may take longer while it starts.
+		</p>
+	{/if}
+
+	{#if errorMessage}
+		<div class="status error" role="alert">
+			<div>
+				<strong>Prediction unavailable</strong>
+				<p>{errorMessage}</p>
+			</div>
+			{#if !isLoading}
+				<button class="button retry" type="submit">Retry</button>
+			{/if}
+		</div>
+	{/if}
+
+	{#if result}
+		{#key resultSequence}
+			<PredictionResult {result} onDismiss={dismiss} onAnother={another} />
+		{/key}
+	{/if}
+</section>
 <section class="prediction-section" id="customize" aria-labelledby="customize-heading">
 	<div class="section-heading">
-		<span class="eyebrow">03 / Customize collision conditions</span>
+		<span class="eyebrow">04 / Customize collision conditions</span>
 		<h2 id="customize-heading">Define the record.</h2>
 		<p>
 			Enter supported categories from the Toronto collision dataset.
@@ -187,55 +236,18 @@
 				decisions.
 			</p>
 		</aside>
-	</div>
-</section>
-<section class="prediction-action" id="prediction" aria-labelledby="prediction-heading" aria-busy={isLoading}>
-	<div class="section-heading">
-		<span class="eyebrow">04 / Predict &amp; view result</span>
-		<h2 id="prediction-heading">Read the classification.</h2>
-		<p>{modelNames[selectedModel]} will evaluate the configured conditions. The visual feedback illustrates the returned class, not collision physics.</p>
-	</div>
 		<div class="submit-row">
-			<button id="request-prediction" class="button button-primary" type="submit" disabled={isLoading}>
-				{#if isLoading}
-					<span class="spinner" aria-hidden="true"></span>
-					Waiting for model…
-				{:else}
-					Request prediction <span aria-hidden="true">↗</span>
-				{/if}
+			<button id="predict-customized" class="button button-primary" type="submit" disabled={isLoading}>
+				Predict With These Conditions <span aria-hidden="true">↑</span>
 			</button>
-			<span class="submit-note">Prediction is served by the existing Flask API.</span>
 		</div>
-
-		{#if isLoading}
-			<p class="status loading" role="status" aria-live="polite">
-				Connecting to the model service. Its first response may take longer while it starts.
-			</p>
-		{/if}
-
-		{#if errorMessage}
-			<div class="status error" role="alert">
-				<div>
-					<strong>Prediction unavailable</strong>
-					<p>{errorMessage}</p>
-				</div>
-				{#if !isLoading}
-					<button class="button retry" type="submit">Retry</button>
-				{/if}
-			</div>
-		{/if}
-
-		{#if result}
-			{#key resultSequence}
-				<PredictionResult {result} onDismiss={dismiss} onAnother={another} />
-			{/key}
-		{/if}
+	</div>
 </section>
 </form>
 
 <style>
 	.prediction-section {
-		padding-block: 1rem 3rem;
+		padding-block: 3rem;
 	}
 
 	.prediction-card {
@@ -366,6 +378,7 @@
 
 	.submit-row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 1rem;
 		margin-top: 1.5rem;
@@ -374,6 +387,22 @@
 	.submit-note {
 		color: var(--color-muted);
 		font-size: 0.72rem;
+	}
+
+	.section-heading .prediction-caveat {
+		margin-top: 0.8rem;
+		font-size: 0.75rem;
+	}
+
+	.button-customize {
+		border-color: var(--color-text);
+		background: var(--color-text);
+		color: var(--color-bg);
+	}
+
+	.button-customize:hover {
+		border-color: var(--color-muted);
+		background: var(--color-muted);
 	}
 
 	.spinner {

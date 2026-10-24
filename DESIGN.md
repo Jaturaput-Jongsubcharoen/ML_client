@@ -8,12 +8,14 @@ The interface layers one full-viewport, real-time architectural city scene behin
 
 1. Full-screen interactive 3D landing (`#top`).
 2. Model selection and four performance instruments (`#models`).
-3. Collision conditions (`#customize`).
-4. Prediction action and integrated result (`#prediction`).
+3. Prediction action and integrated result (`#prediction`).
+4. Collision conditions (`#customize`).
 5. Historical Toronto collision map (`#toronto-map`).
 6. Project explanation and architecture (`#about`).
 
 The hero CTA leads to the cockpit, not directly to the form. Model selection exists only in the cockpit; the form displays a read-only selected-model indicator.
+
+The cockpit continues directly to prediction. Request Prediction uses the selected classifier and the current shared form values immediately; the 15 default categories are supported by the local Toronto KSI dataset, with sample coordinates 43.7, -79.4. These are illustrative inputs, not a claim that their combination reproduces one source row. The existing one-hot feature mapping and Flask request/response contract are unchanged. Customize Conditions is a neutral inverse-theme link that scrolls to the form without resetting state. Predict With These Conditions validates the edited inputs, returns focus and scroll to the prediction heading, and runs the same request handler. Invalid inputs retain field-level errors and focus instead of navigating away. Actions wrap or stack on narrow screens.
 
 ## Palette
 

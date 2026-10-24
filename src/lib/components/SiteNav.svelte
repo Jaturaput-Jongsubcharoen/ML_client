@@ -38,8 +38,8 @@
 
 		<nav id="primary-navigation" class:open={menuOpen} aria-label="Main navigation">
 			<a href="#models" onclick={() => (menuOpen = false)}>Model cockpit</a>
-			<a href="#customize" onclick={() => (menuOpen = false)}>Conditions</a>
 			<a href="#prediction" onclick={() => (menuOpen = false)}>Predict</a>
+			<a href="#customize" onclick={() => (menuOpen = false)}>Conditions</a>
 			<a href="#toronto-map" onclick={() => (menuOpen = false)}>Toronto map</a>
 			<a href="#about" onclick={() => (menuOpen = false)}>About the models</a>
 			<button

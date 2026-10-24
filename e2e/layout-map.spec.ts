@@ -5,11 +5,26 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1024, 768], [768, 102
 		await page.setViewportSize({ width, height });
 		await page.goto('/');
 		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
-		const ids = ['top', 'models', 'customize', 'prediction', 'toronto-map', 'about'];
+		const ids = ['top', 'models', 'prediction', 'customize', 'toronto-map', 'about'];
 		const tops = await page.evaluate((sections) => sections.map((id) => document.getElementById(id)!.getBoundingClientRect().top), ids);
 		expect(tops).toEqual([...tops].sort((a, b) => a - b));
 		const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
 		expect(overflow).toBe(false);
+		const actions = page.locator('#prediction .submit-row .button');
+		const actionBounds = await actions.evaluateAll((nodes) => nodes.map((node) => {
+			const bounds = node.getBoundingClientRect();
+			return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+		}));
+		expect(actionBounds).toHaveLength(2);
+		for (const bounds of actionBounds) {
+			expect(bounds.left).toBeGreaterThanOrEqual(0);
+			expect(bounds.right).toBeLessThanOrEqual(width);
+		}
+		expect(actionBounds[0].right <= actionBounds[1].left || actionBounds[0].bottom <= actionBounds[1].top).toBe(true);
+		if (width > 620) expect(actionBounds[0].top).toBe(actionBounds[1].top);
+		const customizedAction = await page.locator('#predict-customized').boundingBox();
+		expect(customizedAction).not.toBeNull();
+		expect(customizedAction!.x + customizedAction!.width).toBeLessThanOrEqual(width);
 		const wheel = await page.locator('.steering svg').boundingBox();
 		const gauges = await page.locator('.gauges').boundingBox();
 		expect(wheel && gauges).toBeTruthy();

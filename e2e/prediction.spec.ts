@@ -8,6 +8,101 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
 });
 
+test('sample predictions use Random Forest immediately and then the newly selected model', async ({ page }) => {
+	const payloads: unknown[] = [];
+	await page.route('**/predict', async (route) => {
+		const payload = route.request().postDataJSON();
+		payloads.push(payload);
+		expect(route.request().method()).toBe('POST');
+		expect(route.request().headers()['content-type']).toBe('application/json');
+		await route.fulfill({ json: { model: payload.model_name, prediction: 0 } });
+	});
+	await page.getByRole('link', { name: 'Predict with selected model' }).click();
+	await expect(page).toHaveURL(/#prediction$/);
+	await expect(page.locator('#prediction .eyebrow').first()).toHaveText('03 / Predict & view result');
+	await page.getByRole('button', { name: 'Request Prediction', exact: true }).click();
+	await expect(page.locator('.result-panel')).toContainText('Random Forest');
+	expect(payloads[0]).toEqual(buildPredictionPayload('random_forest', createDefaultInputs()));
+
+	await page.getByRole('button', { name: 'Select K-Nearest Neighbors', exact: true }).click();
+	await page.getByRole('button', { name: 'Request Prediction', exact: true }).click();
+	await expect(page.locator('.result-panel')).toContainText('K-Nearest Neighbors');
+	expect(payloads[1]).toEqual(buildPredictionPayload('knn', createDefaultInputs()));
+	expect(payloads).toHaveLength(2);
+});
+
+test('customization round trip validates, preserves state and submits the edited conditions', async ({ page }) => {
+	const payloads: unknown[] = [];
+	await page.route('**/predict', async (route) => {
+		const payload = route.request().postDataJSON();
+		payloads.push(payload);
+		await route.fulfill({ json: { model: payload.model_name, prediction: 1 } });
+	});
+	await page.getByRole('button', { name: 'Select Logistic Regression', exact: true }).click();
+	await page.getByRole('link', { name: 'Customize Conditions', exact: true }).click();
+	await expect(page).toHaveURL(/#customize$/);
+	await expect(page.locator('#customize .eyebrow')).toHaveText('04 / Customize collision conditions');
+	await page.locator('#ROAD_CLASS').selectOption('Expressway');
+	await page.locator('#VISIBILITY').selectOption('Rain');
+	await page.locator('#latitude').fill('91');
+	await page.getByRole('button', { name: 'Predict With These Conditions', exact: true }).click();
+	await expect(page.locator('#latitude')).toBeFocused();
+	await expect(page.locator('#latitude-error')).toBeVisible();
+	expect(payloads).toHaveLength(0);
+	await page.locator('#latitude').fill('43.65');
+	await page.locator('#longitude').fill('-79.38');
+	await page.getByRole('button', { name: 'Predict With These Conditions', exact: true }).click();
+	await expect(page.locator('#prediction-heading')).toBeFocused();
+	await expect(page.locator('.result-panel')).toContainText('Logistic Regression');
+	await expect.poll(() => page.locator('#prediction-heading').evaluate((node) => {
+		const bounds = node.getBoundingClientRect();
+		return bounds.top >= 0 && bounds.bottom < innerHeight;
+	})).toBe(true);
+	const edited = createDefaultInputs();
+	edited.categorical.ROAD_CLASS = 'Expressway';
+	edited.categorical.VISIBILITY = 'Rain';
+	edited.latitude = '43.65';
+	edited.longitude = '-79.38';
+	expect(payloads[0]).toEqual(buildPredictionPayload('logistic_regression', edited));
+	await page.getByRole('link', { name: 'Customize Conditions', exact: true }).click();
+	await expect(page.locator('#ROAD_CLASS')).toHaveValue('Expressway');
+	await expect(page.locator('#latitude')).toHaveValue('43.65');
+	await page.getByRole('button', { name: 'Request Prediction', exact: true }).click();
+	await expect.poll(() => payloads.length).toBe(2);
+	expect(payloads[1]).toEqual(payloads[0]);
+});
+
+test('secondary customization action uses contrasting neutral colors in both themes', async ({ page }) => {
+	await page.emulateMedia({ reducedMotion: 'reduce' });
+	for (const theme of ['dark', 'light']) {
+		const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true });
+		if (await toggle.count()) await toggle.click();
+		await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+		// Keep the action out of its hover state while measuring base theme colors.
+		await page.mouse.move(0, 0);
+		const colors = await page.locator('.button-customize').evaluate((node) => {
+			const style = getComputedStyle(node);
+			const luminance = (color: string) => {
+				const channels = color.match(/[\d.]+/g)!.slice(0, 3).map((value) => {
+					const channel = Number(value) / 255;
+					return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+				});
+				return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+			};
+			const background = luminance(style.backgroundColor);
+			const foreground = luminance(style.color);
+			return {
+				background: style.backgroundColor,
+				neutral: getComputedStyle(document.body).color,
+				contrast: (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+			};
+		});
+		expect(colors.background).toBe(colors.neutral);
+		expect(colors.contrast).toBeGreaterThanOrEqual(4.5);
+		await expect(page.locator('#request-prediction')).toBeEnabled();
+	}
+});
+
 test('all five modes update four exact gauges immediately and persist into the form', async ({ page }) => {
 	let requests = 0;
 	page.on('request', (request) => { if (request.url().endsWith('/predict')) requests++; });
@@ -117,6 +212,7 @@ test('validation, in-flight locking, API error and retry', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Waiting for model' })).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Select Random Forest', exact: true })).toBeDisabled();
 	await expect(page.locator('#latitude')).toBeDisabled();
+	await expect(page.locator('#predict-customized')).toBeDisabled();
 	release();
 	await expect(page.getByRole('alert')).toContainText('Model service unavailable for test');
 	await expect(page.locator('.result-panel')).toHaveCount(0);
