@@ -78,6 +78,29 @@ html[data-intro='revealing'] .intro-overlay {
 	pointer-events: none;
 }
 
+.intro-credit {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max-content;
+	max-width: calc(100% - 2rem);
+	margin: 0;
+	color: var(--color-muted);
+	font-size: clamp(0.72rem, 0.68rem + 0.25vw, 0.86rem);
+	letter-spacing: 0.04em;
+	text-align: center;
+	opacity: 0;
+	transform: translate(-50%, calc(var(--intro-credit-y, 3.5rem) + 6px));
+	transition:
+		opacity 420ms ease,
+		transform 420ms ease;
+}
+
+html[data-intro-credit='in'] .intro-credit {
+	opacity: 1;
+	transform: translate(-50%, var(--intro-credit-y, 3.5rem));
+}
+
 @keyframes intro-logo-in {
 	from {
 		opacity: 0;
@@ -115,6 +138,11 @@ html[data-intro='revealing'] .intro-overlay {
 		opacity: 0;
 		transform: translate(var(--intro-dx), var(--intro-dy)) scale(var(--intro-scale));
 		transition: opacity 200ms ease !important;
+	}
+
+	html[data-intro] .intro-credit {
+		transform: translate(-50%, var(--intro-credit-y, 3.5rem));
+		transition: opacity 300ms ease !important;
 	}
 
 	html[data-intro='revealing'] .site-header .brand,

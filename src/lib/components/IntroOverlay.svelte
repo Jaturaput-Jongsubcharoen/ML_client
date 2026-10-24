@@ -44,6 +44,7 @@
 			root.style.setProperty('--intro-dx', `${dx.toFixed(1)}px`);
 			root.style.setProperty('--intro-dy', `${dy.toFixed(1)}px`);
 			root.style.setProperty('--intro-scale', scale.toFixed(3));
+			root.style.setProperty('--intro-credit-y', `${(bounds.height * scale) / 2 + 22}px`);
 		};
 
 		const wait = (ms: number) =>
@@ -55,6 +56,8 @@
 			root.style.removeProperty('--intro-dx');
 			root.style.removeProperty('--intro-dy');
 			root.style.removeProperty('--intro-scale');
+			root.style.removeProperty('--intro-credit-y');
+			delete root.dataset.introCredit;
 			visible = false;
 		};
 
@@ -63,6 +66,15 @@
 			releaseRequested = true;
 			window.clearTimeout(pollTimer);
 			if (!apiSettled) root.dataset.apiStatus = 'waking';
+			// Brief author credit under the centred brand once the scene is ready; it leaves before the brand docks.
+			if (sceneReady) {
+				root.dataset.introCredit = 'in';
+				await wait(reduced ? 1100 : 1700);
+				if (disposed) return;
+				root.dataset.introCredit = 'out';
+				await wait(reduced ? 300 : 420);
+				if (disposed) return;
+			}
 			// Finish the current quarter turn (never start a new one) so the symmetric mark lands upright.
 			const angle = logo ? Number.parseFloat(getComputedStyle(logo).rotate) || 0 : 0;
 			root.dataset.intro = 'moving';
@@ -127,6 +139,7 @@
 
 {#if visible}
 	<div class="intro-overlay">
+		<p class="intro-credit" aria-hidden="true">By Jaturaput (Mac) Jongsubcharoen</p>
 		<p class="sr-only" role="status">Loading Collision Fatality Prediction / Toronto / Canada.</p>
 	</div>
 {/if}

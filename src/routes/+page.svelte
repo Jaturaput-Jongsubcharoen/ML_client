@@ -94,6 +94,7 @@
 			<p class="hero-lede">
 				Collision Fatality Prediction. Explore five supervised learning perspectives on historical Toronto collision records.
 			</p>
+			<p class="hero-author">By Jaturaput (Mac) Jongsubcharoen</p>
 			<a class="button button-primary hero-cta" href="#models">
 				Enter the model cockpit <span aria-hidden="true">↘</span>
 			</a>
@@ -219,6 +220,13 @@
 		color: var(--color-text);
 		font-size: 0.88rem;
 		line-height: 1.55;
+	}
+
+	.hero-author {
+		margin: 0.6rem 0 0;
+		color: var(--color-muted);
+		font-size: 0.74rem;
+		letter-spacing: 0.02em;
 	}
 
 	.hero-caveat {
