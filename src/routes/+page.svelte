@@ -178,6 +178,7 @@
 	}
 
 	.hero {
+		touch-action: pan-y pinch-zoom;
 		position: relative;
 		height: calc(100svh - 4.7rem);
 		min-height: 650px;

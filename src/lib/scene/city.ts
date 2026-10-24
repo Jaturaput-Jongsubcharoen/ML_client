@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { Theme } from '../types';
-import { trafficPose } from './traffic';
+import { chooseFollowVehicle, createTrafficFleet, trafficPose } from './traffic';
 import { fitCameraDistance } from './camera';
+import { sceneBudget, usesVehicleCamera, VehicleCamera } from './vehicleCamera';
 
 export interface CityController {
 	setTheme: (theme: Theme) => void;
@@ -16,25 +17,20 @@ type Instance = {
 	color?: number;
 };
 
-type Vehicle = {
-	width: number;
-	depth: number;
-	speed: number;
-	distance: number;
-};
-
 export function createCity(
 	canvas: HTMLCanvasElement,
 	theme: Theme,
 	onFailure: (message: string) => void
 ): CityController {
 	const coarsePointer = matchMedia('(pointer: coarse)').matches;
+	const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+	const budget = sceneBudget(window.innerWidth, navigator.hardwareConcurrency || 4, device.deviceMemory, device.connection?.saveData);
 	const mobile = window.innerWidth <= 640 || (coarsePointer && window.innerWidth <= 900);
 	const tablet = !mobile && window.innerWidth <= 1100;
 	const quality = mobile ? 'mobile' : tablet ? 'tablet' : 'desktop';
 	canvas.dataset.sceneQuality = quality;
 	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-	renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1 : tablet ? 1.1 : 1.25));
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, budget.pixelRatio));
 	renderer.shadowMap.enabled = false;
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
 	renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -259,6 +255,7 @@ export function createCity(
 	const windowEntries: Instance[] = [];
 	const centersX = [-75, -45, -15, 15, 45, 75];
 	const centersZ = [-75, -45, -15, 15, 45, 75];
+	const buildingBounds: THREE.Box3[] = [];
 	for (let row = 0; row < centersZ.length; row++) {
 		for (let column = 0; column < centersX.length; column++) {
 			const blockX = centersX[column];
@@ -272,6 +269,10 @@ export function createCity(
 				const depth = 7.6 + (seed % 2) * 0.7;
 				const height = 16 + (seed % 19) * 1.15;
 				const baseY = -0.04;
+				buildingBounds.push(new THREE.Box3(
+					new THREE.Vector3(x - width / 2 - 0.6, baseY, z - depth / 2 - 0.6),
+					new THREE.Vector3(x + width / 2 + 0.6, baseY + height + 0.5, z + depth / 2 + 0.6)
+				));
 				buildingEntries[style].push({
 					position: [x, baseY + height / 2, z],
 					scale: [width, height, depth]
@@ -280,7 +281,7 @@ export function createCity(
 					position: [x, baseY + height + 0.18, z],
 					scale: [width * 0.88, 0.36, depth * 0.88]
 				});
-				const floors = Math.max(1, Math.floor(height / (mobile ? 5.5 : 3.8)));
+				const floors = Math.max(1, Math.floor(height / (mobile || budget.low ? 5.5 : 3.8)));
 				for (let floor = 0; floor < floors; floor++) {
 					windowEntries.push({
 						position: [x, baseY + 1.2 + floor * (height / floors), z + depth / 2 + 0.06],
@@ -393,23 +394,23 @@ export function createCity(
 	const amberMesh = addInstances(amberLights, signalGeometry, amberMat);
 	const greenMesh = addInstances(greenLights, signalGeometry, greenLightMat);
 
-	const vehicleCount = mobile ? 4 : tablet ? 6 : 8;
+	const vehicleCount = budget.vehicles;
+	canvas.dataset.vehicleCount = String(vehicleCount);
+	canvas.dataset.performanceTier = budget.low ? 'low' : 'standard';
 	const vehicleBodies: Instance[] = [];
 	const vehicleCabins: Instance[] = [];
 	const vehicleWindows: Instance[] = [];
-	const vehicles: Vehicle[] = [];
+	const vehicles = createTrafficFleet(vehicleCount);
 	const bodyGeometry = boxGeometry;
 	const tireGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.18, 6);
 	tireGeometry.rotateZ(Math.PI / 2);
 	geometries.add(tireGeometry);
 	const vehicleTires: Instance[] = [];
-	const paths: Array<[number, number]> = [[60, 60], [30, 30], [60, 30], [30, 60]];
 	for (let index = 0; index < vehicleCount; index++) {
-		const [width, depth] = paths[index % paths.length];
-		const type = index % 7;
+		const type = index % 12;
 		const isBus = type === 0;
-		const isVan = type === 1;
-		const isTruck = type === 2;
+		const isVan = type === 7;
+		const isTruck = type === 5;
 		const length = isBus ? 5.2 : isTruck ? 4 : isVan ? 3.6 : 2.8;
 		const height = isBus || isTruck ? 1.25 : 0.72;
 		const xSize = isBus ? 1.65 : isTruck ? 1.45 : 1.25;
@@ -432,17 +433,18 @@ export function createCity(
 			{ position: [-xSize * 0.53, 0.3, length * 0.3], scale: [0.23, 0.18, 0.43] },
 			{ position: [xSize * 0.53, 0.3, length * 0.3], scale: [0.23, 0.18, 0.43] }
 		);
-		vehicles.push({
-			width,
-			depth,
-			speed: isBus ? 2.8 : isTruck ? 3.2 : 4.1,
-			distance: index * 47
-		});
 	}
 	const bodyMesh = addInstances(vehicleBodies, bodyGeometry, vehicleMat);
 	const cabinMesh = addInstances(vehicleCabins, bodyGeometry, vehicleMat);
 	const windowMesh = addInstances(vehicleWindows, bodyGeometry, glassMat);
 	const tireMesh = addInstances(vehicleTires, tireGeometry, rubberMat);
+	// Dynamic instances can travel outside their first-frame bounds.
+	for (const mesh of [bodyMesh, cabinMesh, windowMesh, tireMesh]) {
+		if (mesh) {
+			mesh.frustumCulled = false;
+			mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+		}
+	}
 
 	let disposed = false;
 	let reduced = false;
@@ -465,6 +467,18 @@ export function createCity(
 	const framingBounds = new THREE.Box3().setFromObject(scene);
 	const cityBounds = new THREE.Box3(new THREE.Vector3(-99, 0, -99), new THREE.Vector3(99, 38, 104));
 	const towerBounds = new THREE.Box3().setFromObject(towerPosition);
+	buildingBounds.push(towerBounds);
+	const followCamera = new VehicleCamera(buildingBounds);
+	let following = false;
+	let followedVehicle = -1;
+	let exploration = 0;
+	let explorationUntil = 0;
+	let touch: { id: number; x: number; y: number; yaw: number; horizontal: boolean } | null = null;
+	const vehicleProjection = new THREE.Vector3();
+	const vehicleEndProjection = new THREE.Vector3();
+	let renderCount = 0;
+	let renderTotalMs = 0;
+	let diagnosticsAt = -Infinity;
 	let cameraDistance = 0;
 	let cameraInitialized = false;
 	waterMat.transparent = false;
@@ -491,17 +505,50 @@ export function createCity(
 		const width = canvas.clientWidth;
 		const height = canvas.clientHeight;
 		if (!width || !height) return;
-		const nextQuality = width <= 640 ? 1 : width <= 1100 ? 1.1 : 1.25;
-		renderer.setPixelRatio(Math.min(window.devicePixelRatio, nextQuality));
+		const nextBudget = sceneBudget(width, navigator.hardwareConcurrency || 4, device.deviceMemory, device.connection?.saveData);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, nextBudget.pixelRatio));
 		renderer.setSize(width, height, false);
 		camera.aspect = width / height;
-		cameraDistance = Math.max(
-			fitCameraDistance(cityBounds, target, camera, neutralAngle, staticElevation),
-			fitCameraDistance(towerBounds, target, camera, neutralAngle, staticElevation)
-		);
+		const wasFollowing = following;
+		following = usesVehicleCamera(width, height);
+		camera.fov = following ? 50 : 38;
+		if (following) {
+			if (followedVehicle < 0) {
+				let previous = -1;
+				try {
+					const saved = sessionStorage.getItem('toronto-city-follow');
+					if (saved !== null) previous = Number(saved);
+				} catch (error) {
+					console.error('Unable to read the previous visual vehicle selection.', error);
+				}
+				followedVehicle = chooseFollowVehicle(vehicleCount, previous);
+				try {
+					sessionStorage.setItem('toronto-city-follow', String(followedVehicle));
+				} catch (error) {
+					console.error('Unable to save the visual vehicle selection.', error);
+				}
+			}
+			camera.setViewOffset(width, height, 0, -height * 0.18, width, height);
+			followCamera.update(vehicles[followedVehicle].pose, camera.aspect, 0, exploration, true);
+			cameraDistance = followCamera.position.distanceTo(followCamera.target);
+		} else {
+			camera.clearViewOffset();
+			cameraDistance = Math.max(
+				fitCameraDistance(cityBounds, target, camera, neutralAngle, staticElevation),
+				fitCameraDistance(towerBounds, target, camera, neutralAngle, staticElevation)
+			);
+			if (wasFollowing) {
+				pointerInside = false;
+				pointerX = pointerY = 0.5;
+				orbitAngle = cameraAngle = neutralAngle;
+				cameraElevation = staticElevation;
+			}
+		}
+		canvas.dataset.cameraMode = following ? 'vehicle' : 'overview';
+		canvas.dataset.followVehicle = String(followedVehicle);
 		canvas.dataset.cameraDistance = cameraDistance.toFixed(3);
 		const framingDepth = framingBounds.getSize(desiredCameraPosition).length();
-		camera.near = Math.max(1, cameraDistance - framingDepth);
+		camera.near = following ? 0.5 : Math.max(1, cameraDistance - framingDepth);
 		camera.far = cameraDistance + framingDepth;
 		camera.updateProjectionMatrix();
 		if (scene.fog instanceof THREE.Fog) {
@@ -512,11 +559,38 @@ export function createCity(
 	}
 
 	function pointerMove(event: PointerEvent) {
-		if (reduced || event.pointerType === 'touch') return;
+		if (event.pointerType === 'touch') {
+			if (!touch || touch.id !== event.pointerId || reduced) return;
+			const dx = event.clientX - touch.x;
+			const dy = event.clientY - touch.y;
+			if (!touch.horizontal && Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) {
+				touch = null;
+				return;
+			}
+			if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) touch.horizontal = true;
+			if (touch.horizontal) {
+				exploration = THREE.MathUtils.clamp(touch.yaw - dx * 0.003, -0.18, 0.18);
+				explorationUntil = performance.now() + 1800;
+			}
+			return;
+		}
+		if (following) return;
+		if (reduced) return;
 		pointerX = THREE.MathUtils.clamp(event.clientX / Math.max(window.innerWidth, 1), 0, 1);
 		pointerY = THREE.MathUtils.clamp(event.clientY / Math.max(window.innerHeight, 1), 0, 1);
 		pointerInside = true;
 		if (!frame) frame = requestAnimationFrame(tick);
+	}
+
+	function pointerDown(event: PointerEvent) {
+		if (!following || reduced || event.pointerType !== 'touch' || !event.isPrimary) return;
+		if (!(event.target instanceof Element) || !event.target.closest('.hero') ||
+			event.target.closest('a, button, input, select, summary, .hero-copy')) return;
+		touch = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: exploration, horizontal: false };
+	}
+
+	function pointerUp() {
+		touch = null;
 	}
 
 	function pointerLeave() {
@@ -527,6 +601,11 @@ export function createCity(
 	}
 
 	function updateCamera(dt: number) {
+		if (following) {
+			if (!touch && performance.now() > explorationUntil) exploration *= Math.exp(-2.8 * dt);
+			followCamera.update(vehicles[followedVehicle].pose, camera.aspect, dt, exploration);
+			return;
+		}
 		const edgeBand = 0.14;
 		const leftEdge = Math.max(0, (edgeBand - pointerX) / edgeBand);
 		const rightEdge = Math.max(0, (pointerX - (1 - edgeBand)) / edgeBand);
@@ -545,14 +624,22 @@ export function createCity(
 
 	function render() {
 		if (disposed || failed || document.hidden) return;
-		desiredCameraPosition.set(
-			target.x + Math.sin(cameraAngle) * cameraDistance * Math.cos(cameraElevation),
-			target.y + Math.sin(cameraElevation) * cameraDistance,
-			target.z + Math.cos(cameraAngle) * cameraDistance * Math.cos(cameraElevation)
-		);
-		camera.position.copy(desiredCameraPosition);
-		camera.lookAt(target);
+		if (following) {
+			camera.position.copy(followCamera.position);
+			camera.lookAt(followCamera.target);
+		} else {
+			desiredCameraPosition.set(
+				target.x + Math.sin(cameraAngle) * cameraDistance * Math.cos(cameraElevation),
+				target.y + Math.sin(cameraElevation) * cameraDistance,
+				target.z + Math.cos(cameraAngle) * cameraDistance * Math.cos(cameraElevation)
+			);
+			camera.position.copy(desiredCameraPosition);
+			camera.lookAt(target);
+		}
+		const renderStarted = performance.now();
 		renderer.render(scene, camera);
+		renderTotalMs += performance.now() - renderStarted;
+		renderCount++;
 		if (!cameraInitialized) {
 			canvas.dataset.initialCameraYaw = cameraAngle.toFixed(3);
 			canvas.dataset.initialCameraPitch = cameraElevation.toFixed(3);
@@ -564,6 +651,29 @@ export function createCity(
 				towerHeight: (tip.y - base.y) / 2
 			});
 			cameraInitialized = true;
+		}
+		if (renderStarted - diagnosticsAt < 250) return;
+		diagnosticsAt = renderStarted;
+		canvas.dataset.renderCount = String(renderCount);
+		canvas.dataset.meanRenderMs = (renderTotalMs / renderCount).toFixed(2);
+		canvas.dataset.pixelRatio = String(renderer.getPixelRatio());
+		canvas.dataset.cameraExploration = exploration.toFixed(3);
+		if (following) {
+			const vehicle = vehicles[followedVehicle];
+			const pose = vehicle.pose;
+			vehicleProjection.set(pose.x, 0.9, pose.z).project(camera);
+			vehicleEndProjection.set(pose.x + Math.sin(pose.heading) * vehicleBodies[followedVehicle].scale[2], 0.9, pose.z + Math.cos(pose.heading) * vehicleBodies[followedVehicle].scale[2]).project(camera);
+			canvas.dataset.vehicleScreenX = ((vehicleProjection.x + 1) / 2).toFixed(3);
+			canvas.dataset.vehicleScreenY = ((1 - vehicleProjection.y) / 2).toFixed(3);
+			canvas.dataset.vehiclePixels = (Math.hypot(
+				(vehicleEndProjection.x - vehicleProjection.x) * canvas.clientWidth / 2,
+				(vehicleEndProjection.y - vehicleProjection.y) * canvas.clientHeight / 2
+			)).toFixed(1);
+			canvas.dataset.vehicleX = pose.x.toFixed(3);
+			canvas.dataset.vehicleZ = pose.z.toFixed(3);
+			canvas.dataset.cameraX = camera.position.x.toFixed(3);
+			canvas.dataset.cameraY = camera.position.y.toFixed(3);
+			canvas.dataset.cameraZ = camera.position.z.toFixed(3);
 		}
 		canvas.dataset.drawCalls = String(renderer.info.render.calls);
 		canvas.dataset.triangles = String(renderer.info.render.triangles);
@@ -581,20 +691,9 @@ export function createCity(
 	function updateVehicles(dt: number, advance: boolean) {
 		for (let index = 0; index < vehicles.length; index++) {
 			const vehicle = vehicles[index];
-			let pose = trafficPose(vehicle.distance, vehicle.width, vehicle.depth);
-			const nearestCornerX = Math.min(
-				Math.abs(pose.x - vehicle.width),
-				Math.abs(pose.x + vehicle.width)
-			);
-			const nearestCornerZ = Math.min(
-				Math.abs(pose.z - vehicle.depth),
-				Math.abs(pose.z + vehicle.depth)
-			);
-			const approachingLight = nearestCornerX < 6 && nearestCornerZ < 6;
-			if (advance && !(approachingLight && clock % 9 < 3.5)) {
-				vehicle.distance += vehicle.speed * dt;
-				pose = trafficPose(vehicle.distance, vehicle.width, vehicle.depth);
-			}
+			if (advance) vehicle.distance += vehicle.speed * dt;
+			const pose = trafficPose(vehicle.distance, vehicle.width, vehicle.depth, 3, vehicle.pose);
+			if (vehicle.speed < 0) pose.heading += Math.PI;
 
 			setInstance(bodyMesh, index, pose.x, 0.65, pose.z, ...vehicleBodies[index].scale, pose.heading);
 			setInstance(
@@ -645,6 +744,9 @@ export function createCity(
 		frame = 0;
 		if (disposed || failed || document.hidden) return;
 		if (reduced) {
+			touch = null;
+			exploration = 0;
+			if (following) followCamera.update(vehicles[followedVehicle].pose, camera.aspect, 0, 0, true);
 			render();
 			return;
 		}
@@ -656,11 +758,10 @@ export function createCity(
 		const dt = Math.min((time - last) / 1000, 0.06);
 		last = time;
 		clock += dt;
-		updateCamera(dt);
-
 		const signalCycle = clock % 9;
 		setTrafficLights(signalCycle);
 		updateVehicles(dt, true);
+		updateCamera(dt);
 		render();
 		frame = requestAnimationFrame(tick);
 	}
@@ -682,6 +783,9 @@ export function createCity(
 	}
 
 	window.addEventListener('pointermove', pointerMove, { passive: true });
+	window.addEventListener('pointerdown', pointerDown, { passive: true });
+	window.addEventListener('pointerup', pointerUp, { passive: true });
+	window.addEventListener('pointercancel', pointerUp, { passive: true });
 	window.addEventListener('pointerleave', pointerLeave);
 	const onResize = () => resize();
 	window.addEventListener('resize', onResize, { passive: true });
@@ -709,6 +813,9 @@ export function createCity(
 			disposed = true;
 			cancelAnimationFrame(frame);
 			window.removeEventListener('pointermove', pointerMove);
+			window.removeEventListener('pointerdown', pointerDown);
+			window.removeEventListener('pointerup', pointerUp);
+			window.removeEventListener('pointercancel', pointerUp);
 			window.removeEventListener('pointerleave', pointerLeave);
 			window.removeEventListener('resize', onResize);
 			document.removeEventListener('visibilitychange', schedule);

@@ -47,7 +47,7 @@ The E2E build embeds a local mock API URL. **Run `npm run build` again with your
 
 The city implementation is in `src/lib/scene/city.ts`, with the pure traffic-path math in `traffic.ts`. Its Svelte wrapper dynamically imports the renderer; no Three.js code is run during prerendering. All assets are procedural and local.
 
-Controls: horizontal drag or arrow keys orbit; Shift + arrows pan; Home/reset restores the overview. The view selector offers overview, waterfront and street viewpoints. Clicking geometry focuses it; Follow vehicle cycles through illustrative vehicles. Pause traffic stops autonomous vehicle/signal movement but leaves camera controls active. Reduced-motion mode disables autonomous rendering and uses immediate camera changes.
+Landscape uses the CN Tower overview with cursor-driven tilt and edge orbit. Portrait layouts start with a randomly selected moving vehicle framed below the landing text. Gentle horizontal swipes on the exposed landing scene adjust its follow offset temporarily; vertical scrolling and pinch zoom remain native. There are no camera buttons. Reduced-motion mode freezes traffic and camera movement, and hidden tabs stop the render loop. Geometry, traffic poses, dynamic instance buffers and device capability budgets live in `src/lib/scene/`; `vehicleCamera.ts` owns responsive framing and obstacle clearance.
 
 The cockpit keeps model state in the page, not inside the form. Metrics remain in `src/lib/data/models.ts`; do not replace them with probabilities or a different report run. Result animations must start only after a valid API response, respect reduced motion, and leave the result visible.
 

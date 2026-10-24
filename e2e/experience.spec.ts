@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { usesVehicleCamera } from '../src/lib/scene/vehicleCamera';
 
 test('one fixed city scene remains behind the page and dims after the landing', async ({ page }) => {
 	const errors: string[] = [];
@@ -93,13 +94,15 @@ test('city camera tracks viewport edges within a wide, bounded orbit', async ({ 
 
 for (const [width, height] of [
 	[3440, 1440], [1920, 1080], [1440, 900], [1423, 675], [1024, 768],
-	[768, 1024], [540, 720], [430, 932], [390, 844], [360, 800], [280, 740]
+	[768, 1024], [844, 390], [540, 720], [430, 932], [390, 844], [360, 800], [280, 740]
 ]) {
-	test(`city starts at its stable miniature perspective at ${width}x${height}`, async ({ page }) => {
+	test(`city starts in its responsive camera mode at ${width}x${height}`, async ({ page }) => {
 		await page.setViewportSize({ width, height });
 		await page.goto('/');
 		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
 		const canvas = page.locator('.city canvas');
+		const followsVehicle = usesVehicleCamera(width, height);
+		await expect(canvas).toHaveAttribute('data-camera-mode', followsVehicle ? 'vehicle' : 'overview');
 		await expect(canvas).toHaveAttribute('data-initial-camera-yaw', '0.650');
 		await expect(canvas).toHaveAttribute('data-initial-camera-pitch', '0.600');
 		await expect(canvas).toHaveAttribute('data-building-count', '72');
@@ -116,7 +119,13 @@ for (const [width, height] of [
 			expect(composition.towerHeight).toBeGreaterThan(0.32);
 		}
 		const distance = Number(await canvas.getAttribute('data-camera-distance'));
-		expect(distance).toBeGreaterThan(250);
+		if (followsVehicle) {
+			expect(distance).toBeGreaterThan(38);
+			expect(distance).toBeLessThan(50);
+			expect(Number(await canvas.getAttribute('data-vehicle-pixels'))).toBeGreaterThan(15);
+		} else {
+			expect(distance).toBeGreaterThan(250);
+		}
 		await page.waitForTimeout(300);
 		await expect(canvas).toHaveAttribute('data-camera-yaw', '0.650');
 		await expect(canvas).toHaveAttribute('data-camera-pitch', '0.600');
@@ -124,7 +133,8 @@ for (const [width, height] of [
 		await page.setViewportSize({ width: height, height: width });
 		await expect.poll(async () => canvas.evaluate((node) => node.clientWidth)).toBe(height);
 		await page.setViewportSize({ width, height });
-		await expect.poll(async () => Number(await canvas.getAttribute('data-camera-distance'))).toBe(distance);
+		await expect(canvas).toHaveAttribute('data-camera-mode', followsVehicle ? 'vehicle' : 'overview');
+		if (!followsVehicle) await expect.poll(async () => Number(await canvas.getAttribute('data-camera-distance'))).toBe(distance);
 	});
 }
 
