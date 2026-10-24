@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { waitForApp } from './helpers';
 import { followFraming } from '../src/lib/scene/vehicleCamera';
 
 for (const [width, height] of [
@@ -12,7 +13,7 @@ for (const [width, height] of [
 		await page.setViewportSize({ width, height });
 		await page.goto('/');
 		const canvas = page.locator('.city canvas');
-		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+		await waitForApp(page);
 		await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
 		const snapshot = () => canvas.evaluate((node) => {
 			const d = (node as HTMLCanvasElement).dataset;
@@ -49,7 +50,7 @@ for (const [width, height] of [
 		expect(moving.y).toBeLessThan(0.76);
 		const selected = await canvas.getAttribute('data-follow-vehicle');
 		await page.reload();
-		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+		await waitForApp(page);
 		expect(await canvas.getAttribute('data-follow-vehicle')).not.toBe(selected);
 		await expect(page.getByRole('button', { name: 'Select Random Forest', exact: true })).toHaveAttribute('aria-pressed', 'true');
 		expect(await page.locator('#latitude').inputValue()).toBe('43.7');
@@ -65,7 +66,7 @@ test('touch exploration yields to vertical scrolling and smoothly returns to fol
 	const page = await context.newPage();
 	await page.goto('http://127.0.0.1:4184');
 	const canvas = page.locator('.city canvas');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	const cdp = await context.newCDPSession(page);
 	const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) => {
 		await cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
@@ -105,7 +106,7 @@ test('capability limits, hidden-tab suspension and reduced motion prevent wasted
 	await page.setViewportSize({ width: 400, height: 824 });
 	await page.goto('/');
 	const canvas = page.locator('.city canvas');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	await expect(canvas).toHaveAttribute('data-performance-tier', 'low');
 	await expect(canvas).toHaveAttribute('data-vehicle-count', '12');
 	await expect(canvas).toHaveAttribute('data-pixel-ratio', '1');

@@ -1,0 +1,126 @@
+/*
+ * Intro sequence. `html[data-intro]` is set by the inline script in app.html before first paint,
+ * then advanced by IntroOverlay.svelte: loading -> moving -> revealing -> (removed).
+ * The real navigation brand is used throughout, so it always docks at its exact header position.
+ */
+
+html {
+	scrollbar-gutter: stable;
+	--intro-dx: calc(50vw - 50% - max(1.5rem, (100vw - 1160px) / 2));
+	--intro-dy: calc(50vh - 2.35rem);
+	--intro-scale: 2.2;
+}
+
+html[data-intro] {
+	overflow: hidden;
+}
+
+.intro-overlay {
+	display: none;
+}
+
+html[data-intro] .intro-overlay {
+	position: fixed;
+	z-index: 15;
+	inset: 0;
+	display: block;
+	background: var(--color-bg);
+}
+
+html:is([data-intro='loading'], [data-intro='moving']) .site-header {
+	border-bottom-color: transparent;
+	background: transparent;
+	pointer-events: none;
+}
+
+html:is([data-intro='loading'], [data-intro='moving']) .site-header :is(nav, .menu-toggle),
+html:is([data-intro='loading'], [data-intro='moving']) :is(main, .site-footer) {
+	opacity: 0;
+	visibility: hidden;
+}
+
+html[data-intro='loading'] .site-header .brand {
+	transform: translate(var(--intro-dx), var(--intro-dy)) scale(var(--intro-scale));
+}
+
+/* Hold the brand back until its centred size is measured, so it never changes size while loading. */
+html[data-intro='loading']:not([data-intro-placed]) .site-header .brand {
+	visibility: hidden;
+}
+
+html[data-intro='loading'][data-intro-placed] .site-header .brand .road-mark {
+	animation:
+		intro-logo-in 500ms cubic-bezier(0.16, 1, 0.3, 1) both,
+		intro-quarter-turn 500ms cubic-bezier(0.65, 0, 0.35, 1) 500ms infinite;
+}
+
+html[data-intro='loading'][data-intro-placed] .site-header .brand > span {
+	animation: intro-text-in 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+html[data-intro='moving'] .site-header .brand {
+	transform: none;
+	transition: transform 850ms cubic-bezier(0.7, 0, 0.2, 1);
+}
+
+html[data-intro='revealing'] .site-header {
+	transition: border-color 650ms ease;
+}
+
+html[data-intro='revealing'] .site-header :is(nav, .menu-toggle),
+html[data-intro='revealing'] :is(main, .site-footer),
+html[data-intro='revealing'] .intro-overlay {
+	transition: opacity 650ms ease;
+}
+
+html[data-intro='revealing'] .intro-overlay {
+	opacity: 0;
+	pointer-events: none;
+}
+
+@keyframes intro-logo-in {
+	from {
+		opacity: 0;
+		translate: -60vw 0;
+	}
+}
+
+@keyframes intro-text-in {
+	from {
+		opacity: 0;
+		translate: 60vw 0;
+	}
+}
+
+/* One quarter turn per 0.5 s cycle, then a brief rest; 90° and 0° look identical on the symmetric mark. */
+@keyframes intro-quarter-turn {
+	0% {
+		rotate: 0deg;
+	}
+
+	75%,
+	100% {
+		rotate: 90deg;
+	}
+}
+
+/* Reduced motion: no slides, spin or flight; the centred brand fades out and the page fades in. */
+@media (prefers-reduced-motion: reduce) {
+	html[data-intro] .site-header .brand .road-mark,
+	html[data-intro] .site-header .brand > span {
+		animation: none !important;
+	}
+
+	html[data-intro='moving'] .site-header .brand {
+		opacity: 0;
+		transform: translate(var(--intro-dx), var(--intro-dy)) scale(var(--intro-scale));
+		transition: opacity 200ms ease !important;
+	}
+
+	html[data-intro='revealing'] .site-header .brand,
+	html[data-intro='revealing'] .site-header :is(nav, .menu-toggle),
+	html[data-intro='revealing'] :is(main, .site-footer),
+	html[data-intro='revealing'] .intro-overlay {
+		transition: opacity 300ms ease !important;
+	}
+}

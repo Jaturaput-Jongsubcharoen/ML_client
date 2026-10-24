@@ -20,7 +20,7 @@
 			<RoadMark />
 			<span>
 				<strong>Collision Fatality</strong>
-				<small>Prediction / Toronto</small>
+				<small>Prediction / Toronto / Canada</small>
 			</span>
 		</a>
 
@@ -92,6 +92,7 @@
 	}
 
 	.brand {
+		min-width: 0;
 		gap: 0.75rem;
 		text-decoration: none;
 	}

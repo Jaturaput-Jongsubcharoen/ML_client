@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { waitForApp } from './helpers';
 import { modelIds, modelNames, modelMetrics, metricLabels } from '../src/lib/data/models';
 import { buildPredictionPayload, createDefaultInputs } from '../src/lib/data/features';
 
 test.beforeEach(async ({ page }) => {
 	await page.route('**/predict', (route) => route.fulfill({ json: { error: 'Unexpected request in test' }, status: 500 }));
 	await page.goto('/');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 });
 
 test('sample predictions use Random Forest immediately and then the newly selected model', async ({ page }) => {

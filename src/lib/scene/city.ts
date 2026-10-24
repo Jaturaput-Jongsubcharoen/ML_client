@@ -19,7 +19,8 @@ type Instance = {
 export function createCity(
 	canvas: HTMLCanvasElement,
 	theme: Theme,
-	onFailure: (message: string) => void
+	onFailure: (message: string) => void,
+	onFirstFrame?: () => void
 ): CityController {
 	const coarsePointer = matchMedia('(pointer: coarse)').matches;
 	const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
@@ -615,6 +616,7 @@ export function createCity(
 			canvas.dataset.initialCameraPitch = followCamera.pitch.toFixed(3);
 			canvas.dataset.initialVehicleDistance = camera.position.distanceTo(followCamera.target).toFixed(3);
 			cameraInitialized = true;
+			onFirstFrame?.();
 		}
 		if (renderStarted - diagnosticsAt < 250) return;
 		diagnosticsAt = renderStarted;

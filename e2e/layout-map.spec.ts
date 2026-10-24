@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { waitForApp } from './helpers';
 
 for (const [width, height] of [[1920, 1080], [1440, 900], [1024, 768], [768, 1024], [540, 720], [390, 844], [320, 740], [280, 740]]) {
 	test(`section order and overflow at ${width}x${height}`, async ({ page }) => {
 		await page.setViewportSize({ width, height });
 		await page.goto('/');
-		await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+		await waitForApp(page);
 		const ids = ['top', 'models', 'prediction', 'customize', 'toronto-map', 'about'];
 		const tops = await page.evaluate((sections) => sections.map((id) => document.getElementById(id)!.getBoundingClientRect().top), ids);
 		expect(tops).toEqual([...tops].sort((a, b) => a - b));
@@ -55,6 +56,7 @@ test('historical map preserves real totals, loads worker, and supports zoom', as
 		body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a/TsAAAAASUVORK5CYII=', 'base64')
 	}));
 	await page.goto('/');
+	await waitForApp(page);
 	await page.locator('#toronto-map').scrollIntoViewIfNeeded();
 	await expect(page.locator('.map-status')).toContainText('Map ready', { timeout: 20_000 });
 	await expect(page.locator('.map-heading')).toContainText('4,955 geolocated collision IDs');
@@ -73,7 +75,7 @@ test('touch navigation and native model controls remain usable', async ({ browse
 	const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 	const page = await context.newPage();
 	await page.goto('http://127.0.0.1:4184');
-	await expect(page.locator('.city')).toHaveAttribute('data-ready', 'true');
+	await waitForApp(page);
 	await expect(page.locator('.city')).toHaveCSS('position', 'fixed');
 	await expect(page.locator('.scene-controls')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Open navigation menu' }).tap();
