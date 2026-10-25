@@ -34,8 +34,7 @@ html:is([data-intro='loading'], [data-intro='moving']) .site-header {
 	pointer-events: none;
 }
 
-html:is([data-intro='loading'], [data-intro='moving']) .site-header :is(nav, .menu-toggle),
-html:is([data-intro='loading'], [data-intro='moving']) :is(main, .site-footer) {
+html:is([data-intro='loading'], [data-intro='moving']) .site-header :is(nav, .menu-toggle) {
 	opacity: 0;
 	visibility: hidden;
 }
@@ -69,7 +68,6 @@ html[data-intro='revealing'] .site-header {
 }
 
 html[data-intro='revealing'] .site-header :is(nav, .menu-toggle),
-html[data-intro='revealing'] :is(main, .site-footer),
 html[data-intro='revealing'] .intro-overlay {
 	transition: opacity 250ms ease;
 }
@@ -148,7 +146,6 @@ html[data-intro-credit='in'] .intro-credit {
 
 	html[data-intro='revealing'] .site-header .brand,
 	html[data-intro='revealing'] .site-header :is(nav, .menu-toggle),
-	html[data-intro='revealing'] :is(main, .site-footer),
 	html[data-intro='revealing'] .intro-overlay {
 		transition: opacity 300ms ease !important;
 	}

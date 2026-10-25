@@ -5,14 +5,15 @@ interface IntroSample {
 	cx: number;
 	cy: number;
 	width: number;
-	mainHidden: boolean;
+	mainRendered: boolean;
 	navHidden: boolean;
 	overlayOpaque: boolean;
 	logoAnimation: string;
 }
 
 interface IntroRecord {
-	states: { state: string; firstFrame: boolean }[];
+	states: { state: string; firstFrame: boolean; at: number }[];
+	creditInAt?: number;
 	lastLoading?: IntroSample;
 }
 
@@ -23,9 +24,16 @@ async function recordIntro(page: Page) {
 		(window as unknown as { __intro: IntroRecord }).__intro = record;
 		new MutationObserver(() => {
 			const state = document.documentElement.dataset.intro ?? 'done';
+			if (document.documentElement.dataset.introCredit === 'in' && record.creditInAt === undefined) {
+				record.creditInAt = performance.now();
+			}
 			if (record.states.at(-1)?.state === state) return;
-			record.states.push({ state, firstFrame: document.querySelector<HTMLElement>('.city')?.dataset.firstFrame === 'true' });
-		}).observe(document, { attributes: true, subtree: true, attributeFilter: ['data-intro'] });
+			record.states.push({
+				state,
+				firstFrame: document.querySelector<HTMLElement>('.city')?.dataset.firstFrame === 'true',
+				at: performance.now()
+			});
+		}).observe(document, { attributes: true, subtree: true, attributeFilter: ['data-intro', 'data-intro-credit'] });
 		const sample = () => {
 			const root = document.documentElement;
 			if (!root) return void requestAnimationFrame(sample);
@@ -40,7 +48,7 @@ async function recordIntro(page: Page) {
 					cx: box.x + box.width / 2,
 					cy: box.y + box.height / 2,
 					width: box.width,
-					mainHidden: main.visibility === 'hidden' && main.opacity === '0',
+					mainRendered: main.visibility === 'visible' && main.opacity === '1',
 					navHidden: nav.visibility === 'hidden',
 					overlayOpaque: overlayStyle.display === 'block' && overlayStyle.opacity === '1',
 					logoAnimation: getComputedStyle(brand.querySelector('.road-mark')!).animationName
@@ -68,6 +76,9 @@ for (const viewport of [
 
 		const record = await readRecord(page);
 		expect(record.states.map(({ state }) => state)).toEqual(['loading', 'moving', 'revealing', 'done']);
+		expect(record.states[1].at).toBeGreaterThanOrEqual(3000);
+		expect(record.creditInAt).toBeGreaterThanOrEqual(2000);
+		expect(record.creditInAt).toBeLessThan(record.states[1].at);
 		// The brand only leaves the centre once the city has drawn a real frame.
 		expect(record.states[1].firstFrame).toBe(true);
 
@@ -76,7 +87,7 @@ for (const viewport of [
 		expect(Math.abs(centred.cx - viewport.width / 2)).toBeLessThan(4);
 		expect(Math.abs(centred.cy - viewport.height / 2)).toBeLessThan(4);
 		expect(centred.width).toBeLessThanOrEqual(viewport.width);
-		expect(centred).toMatchObject({ mainHidden: true, navHidden: true, overlayOpaque: true });
+		expect(centred).toMatchObject({ mainRendered: true, navHidden: true, overlayOpaque: true });
 		expect(centred.logoAnimation).toContain('intro-quarter-turn');
 
 		await expect(page.locator('.intro-overlay')).toHaveCount(0);
