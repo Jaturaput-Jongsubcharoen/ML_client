@@ -66,21 +66,12 @@
 			releaseRequested = true;
 			window.clearTimeout(pollTimer);
 			if (!apiSettled) root.dataset.apiStatus = 'waking';
-			// Brief author credit under the centred brand once the scene is ready; it leaves before the brand docks.
-			if (sceneReady) {
-				root.dataset.introCredit = 'in';
-				await wait(reduced ? 1100 : 1700);
-				if (disposed) return;
-				root.dataset.introCredit = 'out';
-				await wait(reduced ? 300 : 420);
-				if (disposed) return;
-			}
 			// Finish the current quarter turn (never start a new one) so the symmetric mark lands upright.
 			const angle = logo ? Number.parseFloat(getComputedStyle(logo).rotate) || 0 : 0;
 			root.dataset.intro = 'moving';
 			if (!reduced && logo && angle > 0.5 && angle < 89.5 && typeof logo.animate === 'function') {
 				logo.animate([{ rotate: `${angle}deg` }, { rotate: '90deg' }], {
-					duration: Math.max(120, ((90 - angle) / 90) * 375),
+					duration: Math.max(90, ((90 - angle) / 90) * 240),
 					easing: 'cubic-bezier(0.22, 0.8, 0.3, 1)'
 				});
 			}
@@ -93,6 +84,13 @@
 
 		const check = () => {
 			if (releaseRequested || disposed) return;
+			// Show the credit during the existing centred hold instead of serialising it before docking.
+			if (sceneReady && root.dataset.introCredit === undefined) {
+				root.dataset.introCredit = 'in';
+				timers.push(window.setTimeout(() => {
+					if (!disposed) root.dataset.introCredit = 'out';
+				}, reduced ? 260 : 500));
+			}
 			const now = performance.now();
 			// The centred hold counts from when the brand appears; the hard timeout counts from navigation.
 			const ready =

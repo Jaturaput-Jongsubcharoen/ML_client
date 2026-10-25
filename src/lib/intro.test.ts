@@ -18,12 +18,12 @@ describe('intro release gate', () => {
 	});
 
 	it('keeps spinning until the city has rendered its first frame', () => {
-		expect(shouldReleaseIntro({ ...base, sceneReady: false, elapsed: 5000 })).toBe(false);
+		expect(shouldReleaseIntro({ ...base, sceneReady: false, elapsed: INTRO_TIMING.timeoutMs - 1 })).toBe(false);
 	});
 
-	it('waits briefly for a sleeping API but never blocks on it', () => {
-		expect(shouldReleaseIntro({ ...base, apiSettled: false, elapsed: 2600 })).toBe(false);
-		expect(shouldReleaseIntro({ ...base, apiSettled: false, elapsed: INTRO_TIMING.apiWaitMs })).toBe(true);
+	it('warms a sleeping API without keeping page content hidden', () => {
+		const hold = INTRO_TIMING.entranceMs + INTRO_TIMING.holdMs;
+		expect(shouldReleaseIntro({ ...base, apiSettled: false, elapsed: hold })).toBe(true);
 	});
 
 	it('always opens the site at the timeout, even without a rendered scene', () => {
