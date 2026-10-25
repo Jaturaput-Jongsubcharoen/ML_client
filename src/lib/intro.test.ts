@@ -11,29 +11,24 @@ afterEach(() => {
 describe('intro release gate', () => {
 	const base = { sceneReady: true, apiSettled: true, reduced: false };
 
-	it('holds the centred brand for the entrance plus the minimum hold', () => {
-		const hold = INTRO_TIMING.entranceMs + INTRO_TIMING.holdMs;
-		expect(shouldReleaseIntro({ ...base, elapsed: hold - 1 })).toBe(false);
-		expect(shouldReleaseIntro({ ...base, elapsed: hold })).toBe(true);
+	it('holds the intro for three seconds from navigation start', () => {
+		expect(INTRO_TIMING.minimumMs).toBe(3000);
+		expect(INTRO_TIMING.creditInMs).toBe(2000);
+		expect(shouldReleaseIntro({ ...base, elapsed: INTRO_TIMING.minimumMs - 1 })).toBe(false);
+		expect(shouldReleaseIntro({ ...base, elapsed: INTRO_TIMING.minimumMs })).toBe(true);
 	});
 
 	it('keeps spinning until the city has rendered its first frame', () => {
-		expect(shouldReleaseIntro({ ...base, sceneReady: false, elapsed: INTRO_TIMING.timeoutMs - 1 })).toBe(false);
+		expect(shouldReleaseIntro({ ...base, sceneReady: false, elapsed: INTRO_TIMING.minimumMs + 30_000 })).toBe(false);
 	});
 
 	it('warms a sleeping API without keeping page content hidden', () => {
-		const hold = INTRO_TIMING.entranceMs + INTRO_TIMING.holdMs;
-		expect(shouldReleaseIntro({ ...base, apiSettled: false, elapsed: hold })).toBe(true);
+		expect(shouldReleaseIntro({ ...base, apiSettled: false, elapsed: INTRO_TIMING.minimumMs })).toBe(true);
 	});
 
-	it('always opens the site at the timeout, even without a rendered scene', () => {
-		expect(
-			shouldReleaseIntro({ sceneReady: false, apiSettled: false, reduced: false, elapsed: INTRO_TIMING.timeoutMs })
-		).toBe(true);
-	});
-
-	it('uses a shorter hold for reduced motion', () => {
-		expect(shouldReleaseIntro({ ...base, reduced: true, elapsed: INTRO_TIMING.reducedHoldMs })).toBe(true);
+	it('keeps the same readable minimum for reduced motion', () => {
+		expect(shouldReleaseIntro({ ...base, reduced: true, elapsed: INTRO_TIMING.minimumMs - 1 })).toBe(false);
+		expect(shouldReleaseIntro({ ...base, reduced: true, elapsed: INTRO_TIMING.minimumMs })).toBe(true);
 	});
 });
 

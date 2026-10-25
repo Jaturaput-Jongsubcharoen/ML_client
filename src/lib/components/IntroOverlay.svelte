@@ -25,7 +25,6 @@
 		const logo = brand?.querySelector<SVGElement>('.road-mark');
 		const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		let apiSettled = false;
-		let shownAt: number | undefined;
 		let disposed = false;
 		let pollTimer = 0;
 		const timers: number[] = [];
@@ -66,6 +65,8 @@
 			releaseRequested = true;
 			window.clearTimeout(pollTimer);
 			if (!apiSettled) root.dataset.apiStatus = 'waking';
+			// The credit stays readable until the exit begins, then leaves with the centred brand.
+			if (root.dataset.introCredit === 'in') root.dataset.introCredit = 'out';
 			// Finish the current quarter turn (never start a new one) so the symmetric mark lands upright.
 			const angle = logo ? Number.parseFloat(getComputedStyle(logo).rotate) || 0 : 0;
 			root.dataset.intro = 'moving';
@@ -84,19 +85,12 @@
 
 		const check = () => {
 			if (releaseRequested || disposed) return;
-			// Show the credit during the existing centred hold instead of serialising it before docking.
-			if (sceneReady && root.dataset.introCredit === undefined) {
-				root.dataset.introCredit = 'in';
-				timers.push(window.setTimeout(() => {
-					if (!disposed) root.dataset.introCredit = 'out';
-				}, reduced ? 260 : 500));
-			}
 			const now = performance.now();
-			// The centred hold counts from when the brand appears; the hard timeout counts from navigation.
-			const ready =
-				now >= INTRO_TIMING.timeoutMs ||
-				(shownAt !== undefined &&
-					shouldReleaseIntro({ elapsed: now - shownAt, sceneReady, apiSettled, reduced }));
+			// Credit timing is independent of load speed and runs only once, even during a long load.
+			if (now >= INTRO_TIMING.creditInMs && root.dataset.introCredit === undefined) {
+				root.dataset.introCredit = 'in';
+			}
+			const ready = shouldReleaseIntro({ elapsed: now, sceneReady, apiSettled, reduced });
 			if (ready) void release();
 		};
 		releaseCheck = check;
@@ -113,7 +107,6 @@
 			if (disposed || root.dataset.introPlaced !== undefined) return;
 			place();
 			root.dataset.introPlaced = '';
-			shownAt = performance.now();
 		};
 		timers.push(window.setTimeout(showBrand, 400));
 		void document.fonts?.ready.then(showBrand);

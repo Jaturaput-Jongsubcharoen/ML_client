@@ -1,12 +1,10 @@
 export const INTRO_TIMING = {
 	/** Logo and text entrance slides. */
 	entranceMs: 400,
-	/** Minimum centred hold after the entrance, while the logo spins. */
-	holdMs: 650,
-	/** Shorter hold when the visitor prefers reduced motion. */
-	reducedHoldMs: 300,
-	/** Hard cap: the site always opens, even without WebGL, the API or a rendered frame. */
-	timeoutMs: 3500,
+	/** Minimum time the intro remains visible from navigation start. */
+	minimumMs: 3000,
+	/** The author credit enters for the final second of the minimum intro. */
+	creditInMs: 2000,
 	moveMs: 300,
 	revealMs: 250,
 	reducedMoveMs: 160,
@@ -22,10 +20,8 @@ export interface IntroGateState {
 }
 
 /** Whether the centred intro may hand the brand over to the navigation bar. */
-export function shouldReleaseIntro({ elapsed, sceneReady, reduced }: IntroGateState): boolean {
-	if (elapsed >= INTRO_TIMING.timeoutMs) return true;
-	const hold = reduced ? INTRO_TIMING.reducedHoldMs : INTRO_TIMING.entranceMs + INTRO_TIMING.holdMs;
-	if (elapsed < hold || !sceneReady) return false;
+export function shouldReleaseIntro({ elapsed, sceneReady }: IntroGateState): boolean {
+	if (elapsed < INTRO_TIMING.minimumMs || !sceneReady) return false;
 	// API warming continues in the background; model availability must not hide page content.
 	return sceneReady;
 }
