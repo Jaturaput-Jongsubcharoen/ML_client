@@ -36,7 +36,7 @@ for (const [width, height] of [
 		expect(initial.y).toBeLessThan(0.75);
 		expect(initial.pixels).toBeGreaterThan(18);
 		expect(initial.vehicles).toBeGreaterThanOrEqual(12);
-		expect(initial.pedestrians).toBe(initial.tier === 'low' ? 6 : width <= 640 ? 9 : width <= 1100 ? 14 : 18);
+		expect(initial.pedestrians).toBe(initial.tier === 'low' ? 8 : width <= 640 ? 10 : width <= 1100 ? 14 : 18);
 		expect(initial.buildings).toBe(72);
 		expect(initial.buildingMasses).toBeGreaterThan(initial.buildings);
 		expect(initial.calls).toBeLessThanOrEqual(30);
@@ -119,8 +119,8 @@ test('capability limits, hidden-tab suspension and reduced motion prevent wasted
 	await waitForApp(page);
 	await expect(canvas).toHaveAttribute('data-performance-tier', 'low');
 	await expect(canvas).toHaveAttribute('data-vehicle-count', '12');
-	await expect(canvas).toHaveAttribute('data-pedestrian-count', '6');
-	await expect(canvas).toHaveAttribute('data-pet-count', '0');
+	await expect(canvas).toHaveAttribute('data-pedestrian-count', '8');
+	await expect(canvas).toHaveAttribute('data-pet-count', '1');
 	await expect(canvas).toHaveAttribute('data-pixel-ratio', '1');
 	const rate = await canvas.evaluate(async (node) => {
 		const canvas = node as HTMLCanvasElement;

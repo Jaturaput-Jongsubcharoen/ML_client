@@ -326,21 +326,20 @@ export function createCity(
 					position: [upperX, baseY + lowerHeight + (height - lowerHeight) / 2, upperZ],
 					scale: [upperWidth, height - lowerHeight, upperDepth]
 				});
-				if (!budget.low) {
-					for (const offset of [-1, 1]) {
-						buildingEntries[style].push(
-							{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z + depth / 2 + 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
-							{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z - depth / 2 - 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
-							{ position: [x + width / 2 + 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] },
-							{ position: [x - width / 2 - 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] }
-						);
-					}
+				// Four-sided piers keep even the low tier readable as architecture rather than blank boxes.
+				for (const offset of [-1, 1]) {
+					buildingEntries[style].push(
+						{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z + depth / 2 + 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
+						{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z - depth / 2 - 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
+						{ position: [x + width / 2 + 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] },
+						{ position: [x - width / 2 - 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] }
+					);
 				}
 				flatRoofEntries.push({
 					position: [tiered ? upperX : x, baseY + height + 0.18, tiered ? upperZ : z],
 					scale: [tiered ? upperWidth * 0.88 : width * 0.88, 0.36, tiered ? upperDepth * 0.88 : depth * 0.88]
 				});
-				if (!budget.low) {
+				{
 					const topWidth = tiered ? upperWidth : width;
 					const topDepth = tiered ? upperDepth : depth;
 					const corniceY = baseY + (tiered ? lowerHeight : height) - 0.16;
@@ -365,7 +364,7 @@ export function createCity(
 					position: [(tiered ? upperX : x) + (seed % 2 ? 0.45 : -0.45), baseY + height + 0.65, tiered ? upperZ : z],
 					scale: [Math.min(2.2, width * 0.32), 0.9, Math.min(1.8, depth * 0.3)]
 				});
-				const floors = Math.max(1, Math.floor(height / (mobile || budget.low ? 5.5 : 3.8)));
+				const floors = Math.max(2, Math.floor(height / (mobile || budget.low ? 4.8 : 3.5)));
 				for (let floor = 0; floor < floors; floor++) {
 					const floorY = baseY + 1.2 + floor * (height / floors);
 					const upperFloor = tiered && floorY > lowerHeight;
@@ -373,8 +372,8 @@ export function createCity(
 					const facadeZ = upperFloor ? upperZ : z;
 					const facadeWidth = upperFloor ? upperWidth : width;
 					const facadeDepth = upperFloor ? upperDepth : depth;
-					const bays = budget.low ? 1 : [1, 2, 3, 2][style];
-					const windowHeight = seed % 5 ? 0.42 : 0.64;
+					const bays = budget.low ? 2 : [2, 3, 4, 3][style];
+					const windowHeight = seed % 5 ? 0.64 : 0.88;
 					for (let bay = 0; bay < bays; bay++) {
 						const ratio = (bay + 1) / (bays + 1) - 0.5;
 						const bayWidth = facadeWidth / (bays + 0.75);
@@ -400,7 +399,7 @@ export function createCity(
 	geometries.add(treeGeometry);
 	const trunks: Instance[] = [];
 	const crowns: Instance[] = [];
-	const treeCount = budget.low ? 10 : mobile ? 14 : tablet ? 20 : 30;
+	const treeCount = budget.low ? 16 : mobile ? 18 : tablet ? 24 : 30;
 	for (let index = 0; index < treeCount; index++) {
 		const avenue = index % 3 === 0;
 		const step = Math.floor(index / 3);
@@ -479,7 +478,8 @@ export function createCity(
 	const streetFurniture: Instance[] = [];
 	const signPanels: Instance[] = [];
 	const streetLamps: Instance[] = [];
-	const signalStride = budget.low ? 2 : 1;
+	// Signals are cheap static instances and are essential intersection landmarks on every tier.
+	const signalStride = 1;
 	for (let row = 0; row < roadZs.length; row += signalStride) {
 		for (let column = 0; column < roadXs.length; column += signalStride) {
 			const intersectionX = roadXs[column];
@@ -629,7 +629,7 @@ export function createCity(
 	}
 
 	// Pedestrians follow inset sidewalk loops, so they never enter road lanes or building lots.
-	const pedestrianCount = budget.low ? 6 : mobile ? 9 : tablet ? 14 : 18;
+	const pedestrianCount = budget.low ? 8 : mobile ? 10 : tablet ? 14 : 18;
 	const pedestrianBodies: Instance[] = [];
 	const pedestrianHeads: Instance[] = [];
 	const pedestrianLimbs: Instance[] = [];
@@ -639,7 +639,7 @@ export function createCity(
 		const ring = [84.4, 54.4, 24.4][index % 3];
 		const reverse = index % 2 === 1;
 		const height = 0.92 + (index % 5) * 0.045;
-		const hasPet = !budget.low && index % 7 === 2;
+		const hasPet = index % 7 === 2;
 		pedestrianBodies.push({ position: [0, 0, 0], scale: [0.34, height * 0.78, 0.25], color: index % 3 === 0 ? 0x6e7775 : index % 3 === 1 ? 0x777169 : 0x626866 });
 		pedestrianHeads.push({ position: [0, 0, 0], scale: [0.22, 0.26, 0.22], color: index % 4 === 0 ? 0x8c6f5f : 0xaa8d78 });
 		for (let limb = 0; limb < 4; limb++) pedestrianLimbs.push({ position: [0, 0, 0], scale: [0.11, limb < 2 ? height * 0.5 : height * 0.44, 0.11] });
@@ -719,7 +719,9 @@ export function createCity(
 		addInstances(flatRoofEntries, boxGeometry, roofMat);
 		addInstances(windowEntries, facadeGeometry, windowMat);
 		canvas.dataset.architectureDetail = 'ready';
-		if (reduced) render();
+		// Idle work can finish while the intro intentionally pauses the animation loop.
+		// Paint the newly attached facades once so they cannot remain absent until motion resumes.
+		render();
 	}
 
 	waterMat.transparent = false;
