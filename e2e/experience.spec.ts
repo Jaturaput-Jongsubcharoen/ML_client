@@ -139,7 +139,11 @@ for (const [width, height] of [
 		expect(framingDistance).toBeLessThanOrEqual(40);
 		const initialDistance = await cameraNumber(canvas, 'initial-vehicle-distance');
 		expect(initialDistance).toBeGreaterThan(10);
-		expect(initialDistance).toBeLessThanOrEqual(framingDistance + 0.01);
+		// The intro's scrollbar gutter can change the aspect after the first frame.
+		const initialFramingDistance = await cameraNumber(canvas, 'initial-camera-distance');
+		expect(initialFramingDistance).toBeGreaterThanOrEqual(34);
+		expect(initialFramingDistance).toBeLessThanOrEqual(40);
+		expect(initialDistance).toBeLessThanOrEqual(initialFramingDistance + 0.01);
 		await waitForRenderedFrames(canvas, 6);
 		expect(await cameraNumber(canvas, 'vehicle-pixels')).toBeGreaterThan(15);
 		const centreX = 0.5 + followFraming(width / height).frameShift;

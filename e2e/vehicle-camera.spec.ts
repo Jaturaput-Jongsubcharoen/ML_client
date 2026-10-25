@@ -48,6 +48,9 @@ for (const [width, height] of [
 		expect(Math.abs(moving.x - centreX)).toBeLessThan(0.15);
 		expect(moving.y).toBeGreaterThan(0.58);
 		expect(moving.y).toBeLessThan(0.76);
+		// Live motion is verified above. Pause software WebGL for the reload/state checks
+		// and diagnostic screenshot, which do not depend on animation.
+		await page.emulateMedia({ reducedMotion: 'reduce' });
 		const selected = await canvas.getAttribute('data-follow-vehicle');
 		await page.reload();
 		await waitForApp(page);

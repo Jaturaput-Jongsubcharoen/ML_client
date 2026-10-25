@@ -105,6 +105,8 @@ test('secondary customization action uses contrasting neutral colors in both the
 });
 
 test('all five modes update four exact gauges immediately and persist into the form', async ({ page }) => {
+	// This test checks model state, not animation; avoid continuous software WebGL rendering.
+	await page.emulateMedia({ reducedMotion: 'reduce' });
 	let requests = 0;
 	page.on('request', (request) => { if (request.url().endsWith('/predict')) requests++; });
 	for (const model of modelIds) {
