@@ -2,9 +2,9 @@
 
 This frontend project is the React-based user interface for a machine learning application that predicts whether a traffic collision is likely to be fatal. It allows users to select a trained model, enter collision-related conditions, and receive a prediction from a Flask backend API.
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/777f23b3-69fe-4977-ab43-077391a47c20" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fba41c45-915e-4caa-9df9-4661ca8c7ee8" />
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c378a44d-2751-454c-a089-f4099078fe74" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/72af33d7-4b84-4b87-9f99-518829fac640" />
 
 ## Live Project
 
