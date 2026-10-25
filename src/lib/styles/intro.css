@@ -5,14 +5,15 @@
  */
 
 html {
-	scrollbar-gutter: stable;
 	--intro-dx: calc(50vw - 50% - max(1.5rem, (100vw - 1160px) / 2));
 	--intro-dy: calc(50vh - 2.35rem);
 	--intro-scale: 2.2;
 }
 
+/* Reserve the gutter only while scrolling is locked, so the full-bleed city spans the viewport afterwards. */
 html[data-intro] {
 	overflow: hidden;
+	scrollbar-gutter: stable;
 }
 
 .intro-overlay {
