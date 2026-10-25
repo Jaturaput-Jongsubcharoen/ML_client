@@ -61,17 +61,17 @@ html[data-intro='loading'][data-intro-placed] .site-header .brand > span {
 
 html[data-intro='moving'] .site-header .brand {
 	transform: none;
-	transition: transform 850ms cubic-bezier(0.7, 0, 0.2, 1);
+	transition: transform 300ms cubic-bezier(0.7, 0, 0.2, 1);
 }
 
 html[data-intro='revealing'] .site-header {
-	transition: border-color 650ms ease;
+	transition: border-color 250ms ease;
 }
 
 html[data-intro='revealing'] .site-header :is(nav, .menu-toggle),
 html[data-intro='revealing'] :is(main, .site-footer),
 html[data-intro='revealing'] .intro-overlay {
-	transition: opacity 650ms ease;
+	transition: opacity 250ms ease;
 }
 
 html[data-intro='revealing'] .intro-overlay {

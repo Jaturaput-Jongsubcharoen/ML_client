@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Theme } from '../types';
-import { chooseFollowVehicle, createTrafficFleet, trafficPose, type TrafficPose } from './traffic';
+import { chooseFollowVehicle, createTrafficFleet, trafficLength, trafficPose, type TrafficPose } from './traffic';
 import { FOLLOW_LOOKAHEAD, followFraming, sceneBudget, VehicleCamera, type FollowInput } from './vehicleCamera';
 
 export interface CityController {
@@ -29,7 +29,12 @@ export function createCity(
 	const tablet = !mobile && window.innerWidth <= 1100;
 	const quality = mobile ? 'mobile' : tablet ? 'tablet' : 'desktop';
 	canvas.dataset.sceneQuality = quality;
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+	const renderer = new THREE.WebGLRenderer({
+		canvas,
+		antialias: !budget.low,
+		alpha: false,
+		powerPreference: 'high-performance'
+	});
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, budget.pixelRatio));
 	renderer.shadowMap.enabled = false;
 	renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -38,7 +43,10 @@ export function createCity(
 	const scene = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 600);
 	const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-	const geometries = new Set<THREE.BufferGeometry>([boxGeometry]);
+	const markingGeometry = new THREE.PlaneGeometry(1, 1);
+	markingGeometry.rotateX(-Math.PI / 2);
+	const facadeGeometry = new THREE.PlaneGeometry(1, 1);
+	const geometries = new Set<THREE.BufferGeometry>([boxGeometry, markingGeometry, facadeGeometry]);
 	const materials = new Set<THREE.Material>();
 	const matrixHelper = new THREE.Object3D();
 	const tint = new THREE.Color();
@@ -82,14 +90,40 @@ export function createCity(
 		width: number,
 		height: number,
 		depth: number,
-		rotationY = 0
+		rotationY = 0,
+		rotationX = 0,
+		rotationZ = 0
 	) {
 		if (!mesh) return;
 		matrixHelper.position.set(x, y, z);
 		matrixHelper.scale.set(width, height, depth);
-		matrixHelper.rotation.set(0, rotationY, 0);
+		matrixHelper.rotation.set(rotationX, rotationY, rotationZ);
 		matrixHelper.updateMatrix();
 		mesh.setMatrixAt(index, matrixHelper.matrix);
+	}
+
+	function setLocalInstance(
+		mesh: THREE.InstancedMesh | undefined,
+		index: number,
+		pose: TrafficPose,
+		sin: number,
+		cos: number,
+		localX: number,
+		y: number,
+		localZ: number,
+		scale: [number, number, number],
+		pitch = 0
+	) {
+		setInstance(
+			mesh,
+			index,
+			pose.x + localX * cos + localZ * sin,
+			y,
+			pose.z - localX * sin + localZ * cos,
+			...scale,
+			pose.heading,
+			pitch
+		);
 	}
 
 	const groundMat = material(0x373b3e);
@@ -103,6 +137,7 @@ export function createCity(
 	];
 	const roofMat = material(0x676e6b);
 	const windowMat = material(0x3b484b, 0.55);
+	windowMat.side = THREE.DoubleSide;
 	const waterMat = material(0x304449, 0.92);
 	const markingMat = material(0xc6c8ba);
 	const treeMat = material(0x56645a);
@@ -113,6 +148,10 @@ export function createCity(
 	const redMat = material(0x91493f, 0.45);
 	const amberMat = material(0x968356, 0.45);
 	const greenLightMat = material(0x596b59, 0.45);
+	const vehicleLightMat = material(0xd9d2ad, 0.4);
+	const pedestrianMat = material(0x626866, 0.82);
+	const skinMat = material(0xaa8d78, 0.9);
+	const petMat = material(0x665e55, 0.92);
 	for (const [mat, glow] of [
 		[redMat, 0x48211b],
 		[amberMat, 0x4a3920],
@@ -239,7 +278,7 @@ export function createCity(
 	for (const x of roadXs) {
 		for (const z of roadZs) {
 			for (const side of [-1, 1]) {
-				for (const stripe of [-2.4, -1.2, 0, 1.2, 2.4]) {
+				for (const stripe of [-3, -2, -1, 0, 1, 2, 3]) {
 					markings.push(
 						{ position: [x + stripe, 0.1, z + side * 6.5], scale: [0.5, 0.025, 2] },
 						{ position: [x + side * 6.5, 0.1, z + stripe], scale: [2, 0.025, 0.5] }
@@ -248,7 +287,6 @@ export function createCity(
 			}
 		}
 	}
-	addInstances(markings, boxGeometry, markingMat);
 
 	const buildingEntries = buildingMats.map(() => [] as Instance[]);
 	const flatRoofEntries: Instance[] = [];
@@ -262,34 +300,92 @@ export function createCity(
 			const blockZ = centersZ[row];
 			for (let plot = 0; plot < 2; plot++) {
 				const seed = (row * 53 + column * 29 + plot * 17) % 97;
-				const x = blockX + (plot === 0 ? -5.5 : 5.5);
-				const z = blockZ + (plot === 0 ? -4.5 : 4.5);
+				// Keep every footprint behind the outer sidewalk edge at 5.7 units from a road.
+				const x = blockX + (plot === 0 ? -5.8 : 5.8);
+				const z = blockZ + (plot === 0 ? -5.2 : 5.2);
 				const style = seed % buildingMats.length;
-				const width = 8 + (seed % 3) * 0.55;
-				const depth = 7.6 + (seed % 2) * 0.7;
-				const height = 16 + (seed % 19) * 1.15;
+				const width = 6.8 + (seed % 4) * 0.38;
+				const depth = 6.5 + (seed % 3) * 0.42;
+				const height = 12 + (seed % 23) * 1.25;
 				const baseY = -0.04;
+				const tiered = style !== 3;
+				const lowerHeight = tiered ? height * ([0.38, 0.55, 0.46][style] + (seed % 3) * 0.06) : height;
+				const upperWidth = width * ([0.72, 0.6, 0.48, 1][style] + (seed % 2) * 0.06);
+				const upperDepth = depth * ([0.62, 0.72, 0.5, 1][style] + (seed % 3) * 0.04);
+				const upperX = x + (tiered ? ((seed % 3) - 1) * (style === 2 ? 0.65 : 0.35) : 0);
+				const upperZ = z + (tiered ? (((seed + 1) % 3) - 1) * (style === 1 ? 0.55 : 0.25) : 0);
 				buildingBounds.push(new THREE.Box3(
-					new THREE.Vector3(x - width / 2 - 0.6, baseY, z - depth / 2 - 0.6),
-					new THREE.Vector3(x + width / 2 + 0.6, baseY + height + 0.5, z + depth / 2 + 0.6)
+					new THREE.Vector3(x - width / 2 - 0.35, baseY, z - depth / 2 - 0.35),
+					new THREE.Vector3(x + width / 2 + 0.35, baseY + height + 0.65, z + depth / 2 + 0.35)
 				));
 				buildingEntries[style].push({
-					position: [x, baseY + height / 2, z],
-					scale: [width, height, depth]
+					position: [x, baseY + lowerHeight / 2, z],
+					scale: [width, lowerHeight, depth]
 				});
+				if (tiered) buildingEntries[style].push({
+					position: [upperX, baseY + lowerHeight + (height - lowerHeight) / 2, upperZ],
+					scale: [upperWidth, height - lowerHeight, upperDepth]
+				});
+				if (!budget.low) {
+					for (const offset of [-1, 1]) {
+						buildingEntries[style].push(
+							{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z + depth / 2 + 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
+							{ position: [x + offset * width / 6, baseY + lowerHeight / 2, z - depth / 2 - 0.065], scale: [0.13, lowerHeight * 0.94, 0.1] },
+							{ position: [x + width / 2 + 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] },
+							{ position: [x - width / 2 - 0.065, baseY + lowerHeight / 2, z + offset * depth / 6], scale: [0.1, lowerHeight * 0.94, 0.13] }
+						);
+					}
+				}
 				flatRoofEntries.push({
-					position: [x, baseY + height + 0.18, z],
-					scale: [width * 0.88, 0.36, depth * 0.88]
+					position: [tiered ? upperX : x, baseY + height + 0.18, tiered ? upperZ : z],
+					scale: [tiered ? upperWidth * 0.88 : width * 0.88, 0.36, tiered ? upperDepth * 0.88 : depth * 0.88]
+				});
+				if (!budget.low) {
+					const topWidth = tiered ? upperWidth : width;
+					const topDepth = tiered ? upperDepth : depth;
+					const corniceY = baseY + (tiered ? lowerHeight : height) - 0.16;
+					flatRoofEntries.push(
+						{ position: [x, corniceY, z + (tiered ? depth : topDepth) / 2 + 0.08], scale: [(tiered ? width : topWidth) + 0.18, 0.22, 0.14] },
+						{ position: [x, corniceY, z - (tiered ? depth : topDepth) / 2 - 0.08], scale: [(tiered ? width : topWidth) + 0.18, 0.22, 0.14] },
+						{ position: [x + (tiered ? width : topWidth) / 2 + 0.08, corniceY, z], scale: [0.14, 0.22, (tiered ? depth : topDepth) + 0.18] },
+						{ position: [x - (tiered ? width : topWidth) / 2 - 0.08, corniceY, z], scale: [0.14, 0.22, (tiered ? depth : topDepth) + 0.18] },
+						{ position: [upperX, baseY + height + 0.48, upperZ + topDepth / 2 - 0.09], scale: [topWidth, 0.42, 0.16] },
+						{ position: [upperX, baseY + height + 0.48, upperZ - topDepth / 2 + 0.09], scale: [topWidth, 0.42, 0.16] },
+						{ position: [upperX + topWidth / 2 - 0.09, baseY + height + 0.48, upperZ], scale: [0.16, 0.42, topDepth] },
+						{ position: [upperX - topWidth / 2 + 0.09, baseY + height + 0.48, upperZ], scale: [0.16, 0.42, topDepth] }
+					);
+					const entranceSide = plot === 0 ? -1 : 1;
+					windowEntries.push({
+						position: [x + ((seed % 3) - 1) * 0.7, 1.15, z + entranceSide * (depth / 2 + 0.08)],
+						scale: [Math.min(1.3, width * 0.22), 2.05, 1],
+						rotation: [0, entranceSide < 0 ? Math.PI : 0, 0]
+					});
+				}
+				if (seed % 3 === 0) flatRoofEntries.push({
+					position: [(tiered ? upperX : x) + (seed % 2 ? 0.45 : -0.45), baseY + height + 0.65, tiered ? upperZ : z],
+					scale: [Math.min(2.2, width * 0.32), 0.9, Math.min(1.8, depth * 0.3)]
 				});
 				const floors = Math.max(1, Math.floor(height / (mobile || budget.low ? 5.5 : 3.8)));
 				for (let floor = 0; floor < floors; floor++) {
-					windowEntries.push({
-						position: [x, baseY + 1.2 + floor * (height / floors), z + depth / 2 + 0.06],
-						scale: [width * 0.82, 0.38, 0.04]
-					}, {
-						position: [x + width / 2 + 0.06, baseY + 1.2 + floor * (height / floors), z],
-						scale: [0.04, 0.38, depth * 0.82]
-					});
+					const floorY = baseY + 1.2 + floor * (height / floors);
+					const upperFloor = tiered && floorY > lowerHeight;
+					const facadeX = upperFloor ? upperX : x;
+					const facadeZ = upperFloor ? upperZ : z;
+					const facadeWidth = upperFloor ? upperWidth : width;
+					const facadeDepth = upperFloor ? upperDepth : depth;
+					const bays = budget.low ? 1 : [1, 2, 3, 2][style];
+					const windowHeight = seed % 5 ? 0.42 : 0.64;
+					for (let bay = 0; bay < bays; bay++) {
+						const ratio = (bay + 1) / (bays + 1) - 0.5;
+						const bayWidth = facadeWidth / (bays + 0.75);
+						const bayDepth = facadeDepth / (bays + 0.75);
+						windowEntries.push(
+							{ position: [facadeX + ratio * facadeWidth, floorY, facadeZ + facadeDepth / 2 + 0.06], scale: [bayWidth * 0.72, windowHeight, 1] },
+							{ position: [facadeX - ratio * facadeWidth, floorY, facadeZ - facadeDepth / 2 - 0.06], scale: [bayWidth * 0.72, windowHeight, 1], rotation: [0, Math.PI, 0] },
+							{ position: [facadeX + facadeWidth / 2 + 0.06, floorY, facadeZ + ratio * facadeDepth], scale: [bayDepth * 0.72, windowHeight, 1], rotation: [0, Math.PI / 2, 0] },
+							{ position: [facadeX - facadeWidth / 2 - 0.06, floorY, facadeZ - ratio * facadeDepth], scale: [bayDepth * 0.72, windowHeight, 1], rotation: [0, -Math.PI / 2, 0] }
+						);
+					}
 				}
 			}
 		}
@@ -297,22 +393,28 @@ export function createCity(
 	buildingEntries.forEach((entries, style) => {
 		addInstances(entries, boxGeometry, buildingMats[style]);
 	});
-	canvas.dataset.buildingCount = String(buildingEntries.reduce((count, entries) => count + entries.length, 0));
-	addInstances(flatRoofEntries, boxGeometry, roofMat);
-	addInstances(windowEntries, boxGeometry, windowMat);
+	canvas.dataset.buildingCount = String(centersX.length * centersZ.length * 2);
+	canvas.dataset.buildingMassCount = String(buildingEntries.reduce((count, entries) => count + entries.length, 0));
 
-	const treeGeometry = new THREE.ConeGeometry(1.15, 2.5, 5);
+	const treeGeometry = new THREE.DodecahedronGeometry(1, 0);
 	geometries.add(treeGeometry);
 	const trunks: Instance[] = [];
 	const crowns: Instance[] = [];
-	const treeCount = mobile ? 8 : tablet ? 12 : 20;
+	const treeCount = budget.low ? 10 : mobile ? 14 : tablet ? 20 : 30;
 	for (let index = 0; index < treeCount; index++) {
-		const avenue = index % 2 === 0;
-		const step = Math.floor(index / 2);
-		const x = avenue ? -98 + (step % 10) * 20 : (step % 6) * 30 - 75 + 5.5;
-		const z = avenue ? 103 : -78 + Math.floor(step / 6) * 32;
-		trunks.push({ position: [x, 0.8, z], scale: [0.18, 1.6, 0.18] });
-		crowns.push({ position: [x, 2, z], scale: [0.95, 1.35, 0.95] });
+		const avenue = index % 3 === 0;
+		const step = Math.floor(index / 3);
+		const x = avenue ? -96 + (step % 10) * 20.5 : centersX[(index * 5) % centersX.length] + (index % 2 ? 10.1 : -10.1);
+		const z = avenue ? 103 : centersZ[(index * 7) % centersZ.length] + (index % 4 < 2 ? 10.2 : -10.2);
+		const height = 1.35 + (index % 5) * 0.13;
+		const spread = 0.72 + (index % 4) * 0.1;
+		trunks.push({ position: [x, height / 2, z], scale: [0.14 + (index % 3) * 0.025, height, 0.14 + (index % 3) * 0.025] });
+		crowns.push({
+			position: [x, height + 0.92 + (index % 2) * 0.18, z],
+			scale: [spread, 0.95 + (index % 3) * 0.22, spread * (0.9 + (index % 2) * 0.18)],
+			rotation: [0, (index * 1.7) % Math.PI, 0],
+			color: index % 3 === 0 ? 0x607061 : index % 3 === 1 ? 0x526258 : 0x59695b
+		});
 	}
 	addInstances(trunks, boxGeometry, trunkMat);
 	addInstances(crowns, treeGeometry, treeMat);
@@ -374,25 +476,74 @@ export function createCity(
 	const redLights: Instance[] = [];
 	const amberLights: Instance[] = [];
 	const greenLights: Instance[] = [];
-	for (let row = 0; row < roadZs.length; row += 2) {
-		for (let column = 0; column < roadXs.length; column += 2) {
-			const x = roadXs[column] + 4.4;
-			const z = roadZs[row] - 4.4;
-			signalPosts.push(
-				{ position: [x, 1.8, z], scale: [0.13, 3.5, 0.13] },
-				{ position: [x, 3.4, z], scale: [0.55, 1, 0.38] }
+	const streetFurniture: Instance[] = [];
+	const signPanels: Instance[] = [];
+	const streetLamps: Instance[] = [];
+	const signalStride = budget.low ? 2 : 1;
+	for (let row = 0; row < roadZs.length; row += signalStride) {
+		for (let column = 0; column < roadXs.length; column += signalStride) {
+			const intersectionX = roadXs[column];
+			const intersectionZ = roadZs[row];
+			for (const [sideX, sideZ] of [[1, -1], [-1, 1]] as const) {
+				const x = intersectionX + sideX * 4.45;
+				const z = intersectionZ + sideZ * 4.45;
+				signalPosts.push(
+					{ position: [x, 1.75, z], scale: [0.12, 3.5, 0.12] },
+					{ position: [x, 3.38, z], scale: [0.52, 1.02, 0.34] },
+					{ position: [x + sideX * 0.24, 2.1, z], scale: [0.36, 0.48, 0.28] }
+				);
+				redLights.push(
+					{ position: [x, 3.7, z - sideZ * 0.18], scale: [0.16, 0.16, 0.07] },
+					{ position: [x + sideX * 0.24, 2.21, z - sideZ * 0.15], scale: [0.1, 0.1, 0.05] }
+				);
+				amberLights.push({ position: [x, 3.4, z - sideZ * 0.18], scale: [0.16, 0.16, 0.07] });
+				greenLights.push(
+					{ position: [x, 3.1, z - sideZ * 0.18], scale: [0.16, 0.16, 0.07] },
+					{ position: [x + sideX * 0.24, 2.02, z - sideZ * 0.15], scale: [0.1, 0.1, 0.05] }
+				);
+			}
+			// Stop bars, compact street-name signs and a lamp at every rendered intersection.
+			markings.push(
+				{ position: [intersectionX, 0.105, intersectionZ - 7.7], scale: [6.2, 0.025, 0.28] },
+				{ position: [intersectionX + 7.7, 0.105, intersectionZ], scale: [0.28, 0.025, 6.2] }
 			);
-			redLights.push({ position: [x, 3.72, z + 0.205], scale: [0.18, 0.18, 0.08] });
-			amberLights.push({ position: [x, 3.42, z + 0.205], scale: [0.18, 0.18, 0.08] });
-			greenLights.push({ position: [x, 3.12, z + 0.205], scale: [0.18, 0.18, 0.08] });
+			const lampX = intersectionX - 4.7;
+			const lampZ = intersectionZ - 4.7;
+			streetFurniture.push(
+				{ position: [lampX, 2.55, lampZ], scale: [0.1, 5.1, 0.1] },
+				{ position: [lampX + 0.42, 4.98, lampZ], scale: [0.85, 0.09, 0.09] },
+				{ position: [lampX, 2.05, lampZ + 0.18], scale: [0.08, 4.1, 0.08] }
+			);
+			streetLamps.push({ position: [lampX + 0.82, 4.91, lampZ], scale: [0.28, 0.12, 0.2] });
+			signPanels.push({ position: [lampX + 0.22, 3.62, lampZ], scale: [0.82, 0.34, 0.08] });
 		}
 	}
-	addInstances(signalPosts, boxGeometry, rubberMat);
-	const signalGeometry = new THREE.SphereGeometry(0.5, 6, 5);
-	geometries.add(signalGeometry);
-	const redMesh = addInstances(redLights, signalGeometry, redMat);
-	const amberMesh = addInstances(amberLights, signalGeometry, amberMat);
-	const greenMesh = addInstances(greenLights, signalGeometry, greenLightMat);
+	// Benches, litter bins and bollards sit in the setback zone between lots and sidewalks.
+	const furnitureCount = budget.low ? 10 : mobile ? 16 : 28;
+	for (let index = 0; index < furnitureCount; index++) {
+		const blockX = centersX[(index * 5) % centersX.length];
+		const blockZ = centersZ[(index * 7) % centersZ.length];
+		const x = blockX + (index % 2 ? 10 : -10);
+		const z = blockZ + (index % 4 < 2 ? 9.7 : -9.7);
+		if (index % 3 === 0) {
+			streetFurniture.push(
+				{ position: [x, 0.48, z], scale: [1.35, 0.14, 0.42] },
+				{ position: [x, 0.82, z + 0.18], scale: [1.35, 0.58, 0.12] },
+				{ position: [x - 0.52, 0.24, z], scale: [0.1, 0.48, 0.1] },
+				{ position: [x + 0.52, 0.24, z], scale: [0.1, 0.48, 0.1] }
+			);
+		} else if (index % 3 === 1) {
+			streetFurniture.push({ position: [x, 0.45, z], scale: [0.46, 0.9, 0.46] });
+		} else {
+			for (const offset of [-0.65, 0, 0.65]) streetFurniture.push({ position: [x + offset, 0.38, z], scale: [0.1, 0.76, 0.1] });
+		}
+	}
+	addInstances([...signalPosts, ...streetFurniture, ...signPanels], boxGeometry, rubberMat);
+	addInstances(markings, markingGeometry, markingMat);
+	addInstances(streetLamps, boxGeometry, vehicleLightMat);
+	const redMesh = addInstances(redLights, boxGeometry, redMat);
+	const amberMesh = addInstances(amberLights, boxGeometry, amberMat);
+	const greenMesh = addInstances(greenLights, boxGeometry, greenLightMat);
 
 	const vehicleCount = budget.vehicles;
 	canvas.dataset.vehicleCount = String(vehicleCount);
@@ -400,6 +551,9 @@ export function createCity(
 	const vehicleBodies: Instance[] = [];
 	const vehicleCabins: Instance[] = [];
 	const vehicleWindows: Instance[] = [];
+	const vehicleLights: Instance[] = [];
+	const vehicleDetails: Instance[] = [];
+	const vehicleDetailRanges: { start: number; count: number }[] = [];
 	const vehicles = createTrafficFleet(vehicleCount);
 	const bodyGeometry = boxGeometry;
 	const tireGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.18, 6);
@@ -414,18 +568,20 @@ export function createCity(
 		const length = isBus ? 5.2 : isTruck ? 4 : isVan ? 3.6 : 2.8;
 		const height = isBus || isTruck ? 1.25 : 0.72;
 		const xSize = isBus ? 1.65 : isTruck ? 1.45 : 1.25;
+		const vehicleColor = [0xb7b9b1, 0x879497, 0xa86150, 0x8f897d, 0x687779, 0xb09b6f][type % 6];
 		vehicleBodies.push({
 			position: [0, 0.65, 0],
 			scale: [xSize, height, length],
-			color: type === 3 ? 0xa86150 : 0xb7b9b1
+			color: vehicleColor
 		});
 		vehicleCabins.push({
 			position: [0, isBus ? 1.22 : 1.08, isTruck ? -0.65 : 0.12],
-			scale: [xSize * 0.84, 0.44, isBus ? 3.4 : isTruck ? 1.4 : 1.35]
+			scale: [xSize * 0.84, isBus || isVan ? 0.56 : 0.44, isBus ? 3.4 : isTruck ? 1.4 : isVan ? 1.8 : 1.35],
+			color: vehicleColor
 		});
 		vehicleWindows.push({
 			position: [0, isBus ? 1.23 : 1.08, isTruck ? -0.65 : 0.12],
-			scale: [xSize * 0.7, 0.25, isBus ? 3.35 : 0.055]
+			scale: [xSize * 0.86, 0.25, isBus ? 3.35 : isTruck ? 0.9 : isVan ? 1.7 : 1.25]
 		});
 		vehicleTires.push(
 			{ position: [-xSize * 0.53, 0.3, -length * 0.3], scale: [0.23, 0.18, 0.43] },
@@ -433,23 +589,98 @@ export function createCity(
 			{ position: [-xSize * 0.53, 0.3, length * 0.3], scale: [0.23, 0.18, 0.43] },
 			{ position: [xSize * 0.53, 0.3, length * 0.3], scale: [0.23, 0.18, 0.43] }
 		);
+		vehicleLights.push(
+			{ position: [-xSize * 0.3, 0.68, length * 0.505], scale: [0.22, 0.16, 0.06], color: 0xd9d2ad },
+			{ position: [xSize * 0.3, 0.68, length * 0.505], scale: [0.22, 0.16, 0.06], color: 0xd9d2ad },
+			{ position: [-xSize * 0.3, 0.68, -length * 0.505], scale: [0.2, 0.15, 0.06], color: 0x91493f },
+			{ position: [xSize * 0.3, 0.68, -length * 0.505], scale: [0.2, 0.15, 0.06], color: 0x91493f }
+		);
+		const detailStart = vehicleDetails.length;
+		if (isBus) {
+			vehicleDetails.push(
+				{ position: [0, 1.58, -0.5], scale: [xSize * 0.72, 0.16, 1.05], color: vehicleColor },
+				{ position: [0, 0.42, length * 0.48], scale: [xSize * 0.92, 0.18, 0.16], color: vehicleColor }
+			);
+		} else if (isTruck) {
+			vehicleDetails.push(
+				{ position: [0, 1.28, 0.78], scale: [xSize * 0.94, 1.28, 2.1], color: vehicleColor },
+				{ position: [0, 0.62, -length * 0.48], scale: [xSize * 0.94, 0.2, 0.16], color: vehicleColor }
+			);
+		} else {
+			vehicleDetails.push(
+				{ position: [0, isVan ? 1.5 : 0.91, length * 0.31], scale: [xSize * 0.86, isVan ? 0.14 : 0.18, length * 0.28], color: vehicleColor },
+				{ position: [0, 0.62, -length * 0.44], scale: [xSize * 0.9, 0.2, length * 0.12], color: vehicleColor }
+			);
+		}
+		vehicleDetailRanges.push({ start: detailStart, count: vehicleDetails.length - detailStart });
 	}
 	const bodyMesh = addInstances(vehicleBodies, bodyGeometry, vehicleMat);
 	const cabinMesh = addInstances(vehicleCabins, bodyGeometry, vehicleMat);
 	const windowMesh = addInstances(vehicleWindows, bodyGeometry, glassMat);
 	const tireMesh = addInstances(vehicleTires, tireGeometry, rubberMat);
+	const vehicleLightMesh = addInstances(vehicleLights, boxGeometry, vehicleLightMat);
+	const vehicleDetailMesh = addInstances(vehicleDetails, boxGeometry, vehicleMat);
 	// Dynamic instances can travel outside their first-frame bounds.
-	for (const mesh of [bodyMesh, cabinMesh, windowMesh, tireMesh]) {
+	for (const mesh of [bodyMesh, cabinMesh, windowMesh, tireMesh, vehicleLightMesh, vehicleDetailMesh]) {
 		if (mesh) {
 			mesh.frustumCulled = false;
 			mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 		}
 	}
 
+	// Pedestrians follow inset sidewalk loops, so they never enter road lanes or building lots.
+	const pedestrianCount = budget.low ? 6 : mobile ? 9 : tablet ? 14 : 18;
+	const pedestrianBodies: Instance[] = [];
+	const pedestrianHeads: Instance[] = [];
+	const pedestrianLimbs: Instance[] = [];
+	const petParts: Instance[] = [];
+	const leashEntries: Instance[] = [];
+	const pedestrians = Array.from({ length: pedestrianCount }, (_, index) => {
+		const ring = [84.4, 54.4, 24.4][index % 3];
+		const reverse = index % 2 === 1;
+		const height = 0.92 + (index % 5) * 0.045;
+		const hasPet = !budget.low && index % 7 === 2;
+		pedestrianBodies.push({ position: [0, 0, 0], scale: [0.34, height * 0.78, 0.25], color: index % 3 === 0 ? 0x6e7775 : index % 3 === 1 ? 0x777169 : 0x626866 });
+		pedestrianHeads.push({ position: [0, 0, 0], scale: [0.22, 0.26, 0.22], color: index % 4 === 0 ? 0x8c6f5f : 0xaa8d78 });
+		for (let limb = 0; limb < 4; limb++) pedestrianLimbs.push({ position: [0, 0, 0], scale: [0.11, limb < 2 ? height * 0.5 : height * 0.44, 0.11] });
+		if (hasPet) {
+			petParts.push(
+				{ position: [0, 0, 0], scale: index % 14 === 2 ? [0.24, 0.28, 0.5] : [0.18, 0.2, 0.38] },
+				{ position: [0, 0, 0], scale: index % 14 === 2 ? [0.22, 0.24, 0.22] : [0.17, 0.19, 0.17] }
+			);
+			leashEntries.push({ position: [0, 0, 0], scale: [0.025, 0.025, 1] });
+		}
+		return {
+			distance: (index / pedestrianCount) * (ring * 7.2),
+			speed: (0.72 + (index % 4) * 0.08) * (reverse ? -1 : 1),
+			ring,
+			height,
+			hasPet,
+			pose: { x: 0, z: 0, heading: 0 } as TrafficPose
+		};
+	});
+	const pedestrianBodyMesh = addInstances(pedestrianBodies, boxGeometry, pedestrianMat);
+	const pedestrianHeadMesh = addInstances(pedestrianHeads, boxGeometry, skinMat);
+	const pedestrianLimbMesh = addInstances(pedestrianLimbs, boxGeometry, pedestrianMat);
+	const petMesh = addInstances(petParts, boxGeometry, petMat);
+	const leashMesh = addInstances(leashEntries, boxGeometry, petMat);
+	for (const mesh of [pedestrianBodyMesh, pedestrianHeadMesh, pedestrianLimbMesh, petMesh, leashMesh]) {
+		if (mesh) {
+			mesh.frustumCulled = false;
+			mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+		}
+	}
+	canvas.dataset.pedestrianCount = String(pedestrianCount);
+	canvas.dataset.petCount = String(petParts.length / 2);
+
 	let disposed = false;
+	let detailWork = 0;
+	let detailWorkIsIdle = false;
+	let introPaused = document.documentElement.dataset.intro !== undefined;
 	let reduced = false;
 	let failed = false;
 	let frame = 0;
+	let resumeTimer = 0;
 	let last = 0;
 	let clock = 0;
 	let pointerX = 0.5;
@@ -477,6 +708,19 @@ export function createCity(
 	let diagnosticsAt = -Infinity;
 	let cameraDistance = 0;
 	let cameraInitialized = false;
+	const idleWindow = window as Window & {
+		requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+		cancelIdleCallback?: (handle: number) => void;
+	};
+
+	function attachArchitectureDetails() {
+		detailWork = 0;
+		if (disposed) return;
+		addInstances(flatRoofEntries, boxGeometry, roofMat);
+		addInstances(windowEntries, facadeGeometry, windowMat);
+		canvas.dataset.architectureDetail = 'ready';
+		if (reduced) render();
+	}
 
 	waterMat.transparent = false;
 	waterMat.depthTest = true;
@@ -492,7 +736,10 @@ export function createCity(
 		buildingMats[2].color.set(light ? 0xd3d0c3 : 0xa19f94);
 		buildingMats[3].color.set(light ? 0xbfc3bd : 0x777e7b);
 		roofMat.color.set(light ? 0x777a73 : 0x676e6b);
+		windowMat.color.set(light ? 0x667477 : 0x3b484b);
 		sidewalkMat.color.set(light ? 0xbfc3b7 : 0x727875);
+		treeMat.color.set(light ? 0x879583 : 0x56645a);
+		trunkMat.color.set(light ? 0x777064 : 0x55534c);
 		waterMat.color.set(light ? 0x9caeaf : 0x304449);
 		sun.intensity = light ? 2.8 : 2.1;
 		if (renderScene) render();
@@ -516,6 +763,16 @@ export function createCity(
 			console.error('Unable to save the visual vehicle selection.', error);
 		}
 		canvas.dataset.followVehicle = String(followedVehicle);
+		const followed = vehicles[followedVehicle];
+		const roadRing = Math.round(Math.abs(followed.width) / 30) * 30;
+		const sidewalkRing = Math.max(24.4, roadRing - 5.6);
+		const vehicleRouteLength = trafficLength(followed.width, followed.depth);
+		const progress = (((followed.distance % vehicleRouteLength) + vehicleRouteLength) % vehicleRouteLength) / vehicleRouteLength;
+		const sidewalkLength = trafficLength(sidewalkRing, sidewalkRing);
+		for (let index = 0; index < Math.min(3, pedestrians.length); index++) {
+			pedestrians[index].ring = sidewalkRing;
+			pedestrians[index].distance = progress * sidewalkLength + (index - 1) * 4.5;
+		}
 	}
 
 	function updateFollowInput(dt: number, snap = false) {
@@ -660,6 +917,8 @@ export function createCity(
 			if (advance) vehicle.distance += vehicle.speed * dt;
 			const pose = trafficPose(vehicle.distance, vehicle.width, vehicle.depth, 3, vehicle.pose);
 			if (vehicle.speed < 0) pose.heading += Math.PI;
+			const sin = Math.sin(pose.heading);
+			const cos = Math.cos(pose.heading);
 
 			setInstance(bodyMesh, index, pose.x, 0.65, pose.z, ...vehicleBodies[index].scale, pose.heading);
 			setInstance(
@@ -684,8 +943,8 @@ export function createCity(
 				const tire = vehicleTires[index * 4 + wheel];
 				const localX = tire.position[0];
 				const localZ = tire.position[2];
-				const rotatedX = localX * Math.cos(pose.heading) + localZ * Math.sin(pose.heading);
-				const rotatedZ = -localX * Math.sin(pose.heading) + localZ * Math.cos(pose.heading);
+				const rotatedX = localX * cos + localZ * sin;
+				const rotatedZ = -localX * sin + localZ * cos;
 				setInstance(
 					tireMesh,
 					index * 4 + wheel,
@@ -696,19 +955,85 @@ export function createCity(
 					pose.heading
 				);
 			}
+			for (let light = 0; light < 4; light++) {
+				const entry = vehicleLights[index * 4 + light];
+				const localX = entry.position[0];
+				const localZ = entry.position[2];
+				setInstance(
+					vehicleLightMesh,
+					index * 4 + light,
+					pose.x + localX * cos + localZ * sin,
+					entry.position[1],
+					pose.z - localX * sin + localZ * cos,
+					...entry.scale,
+					pose.heading
+				);
+			}
+			const detailRange = vehicleDetailRanges[index];
+			for (let detail = 0; detail < detailRange.count; detail++) {
+				const detailIndex = detailRange.start + detail;
+				const entry = vehicleDetails[detailIndex];
+				setLocalInstance(
+					vehicleDetailMesh,
+					detailIndex,
+					pose,
+					sin,
+					cos,
+					entry.position[0],
+					entry.position[1],
+					entry.position[2],
+					entry.scale
+				);
+			}
 		}
 		if (bodyMesh) bodyMesh.instanceMatrix.needsUpdate = true;
 		if (cabinMesh) cabinMesh.instanceMatrix.needsUpdate = true;
 		if (windowMesh) windowMesh.instanceMatrix.needsUpdate = true;
 		if (tireMesh) tireMesh.instanceMatrix.needsUpdate = true;
+		if (vehicleLightMesh) vehicleLightMesh.instanceMatrix.needsUpdate = true;
+		if (vehicleDetailMesh) vehicleDetailMesh.instanceMatrix.needsUpdate = true;
+	}
+
+	function updatePedestrians(dt: number, advance: boolean) {
+		let petIndex = 0;
+		for (let index = 0; index < pedestrians.length; index++) {
+			const pedestrian = pedestrians[index];
+			if (advance) pedestrian.distance += pedestrian.speed * dt;
+			const pose = trafficPose(pedestrian.distance, pedestrian.ring, pedestrian.ring, 3, pedestrian.pose);
+			if (pedestrian.speed < 0) pose.heading += Math.PI;
+			const sin = Math.sin(pose.heading);
+			const cos = Math.cos(pose.heading);
+			const stride = Math.sin(clock * 5.2 + index * 1.7) * 0.42;
+			const bob = Math.abs(Math.sin(clock * 5.2 + index * 1.7)) * 0.035;
+			const legLength = pedestrian.height * 0.5;
+			const bodyLength = pedestrian.height * 0.78;
+			setLocalInstance(pedestrianBodyMesh, index, pose, sin, cos, 0, legLength + bodyLength / 2 + bob, 0, pedestrianBodies[index].scale);
+			setLocalInstance(pedestrianHeadMesh, index, pose, sin, cos, 0, legLength + bodyLength + 0.14 + bob, 0, pedestrianHeads[index].scale);
+			const limbBase = index * 4;
+			setLocalInstance(pedestrianLimbMesh, limbBase, pose, sin, cos, -0.12, legLength / 2, 0, pedestrianLimbs[limbBase].scale, stride);
+			setLocalInstance(pedestrianLimbMesh, limbBase + 1, pose, sin, cos, 0.12, legLength / 2, 0, pedestrianLimbs[limbBase + 1].scale, -stride);
+			setLocalInstance(pedestrianLimbMesh, limbBase + 2, pose, sin, cos, -0.25, legLength + bodyLength * 0.55, 0, pedestrianLimbs[limbBase + 2].scale, -stride * 0.75);
+			setLocalInstance(pedestrianLimbMesh, limbBase + 3, pose, sin, cos, 0.25, legLength + bodyLength * 0.55, 0, pedestrianLimbs[limbBase + 3].scale, stride * 0.75);
+			if (pedestrian.hasPet) {
+				const side = index % 2 ? -0.72 : 0.72;
+				setLocalInstance(petMesh, petIndex * 2, pose, sin, cos, side, 0.25, 0.42, petParts[petIndex * 2].scale);
+				setLocalInstance(petMesh, petIndex * 2 + 1, pose, sin, cos, side, 0.43, 0.69, petParts[petIndex * 2 + 1].scale);
+				setLocalInstance(leashMesh, petIndex, pose, sin, cos, side * 0.5, 0.67, 0.22, leashEntries[petIndex].scale, side * 0.28);
+				petIndex++;
+			}
+		}
+		for (const mesh of [pedestrianBodyMesh, pedestrianHeadMesh, pedestrianLimbMesh, petMesh, leashMesh]) {
+			if (mesh) mesh.instanceMatrix.needsUpdate = true;
+		}
 	}
 
 	updateVehicles(0, false);
+	updatePedestrians(0, false);
 	setTrafficLights(0);
 
 	function tick(time: number) {
 		frame = 0;
-		if (disposed || failed || document.hidden) return;
+		if (disposed || failed || document.hidden || introPaused) return;
 		if (reduced) {
 			touch = null;
 			exploration = 0;
@@ -729,6 +1054,7 @@ export function createCity(
 		const signalCycle = clock % 9;
 		setTrafficLights(signalCycle);
 		updateVehicles(dt, true);
+		updatePedestrians(dt, true);
 		updateCamera(dt);
 		render();
 		frame = requestAnimationFrame(tick);
@@ -739,7 +1065,7 @@ export function createCity(
 		frame = 0;
 		last = 0;
 		render();
-		if (!disposed && !failed && !document.hidden && !reduced) frame = requestAnimationFrame(tick);
+		if (!disposed && !failed && !document.hidden && !reduced && !introPaused) frame = requestAnimationFrame(tick);
 	}
 
 	function contextLost(event: Event) {
@@ -761,11 +1087,35 @@ export function createCity(
 	if (resizeObserver) resizeObserver.observe(canvas);
 	else window.addEventListener('resize', onResize, { passive: true });
 	document.addEventListener('visibilitychange', schedule);
+	const introObserver = new MutationObserver(() => {
+		const state = document.documentElement.dataset.intro;
+		const paused = state !== undefined;
+		if (paused === introPaused) return;
+		introPaused = paused;
+		if (introPaused) {
+			clearTimeout(resumeTimer);
+			resumeTimer = 0;
+			schedule();
+		} else {
+			// Let the revealed heading paint before software WebGL resumes background motion.
+			resumeTimer = window.setTimeout(() => {
+				resumeTimer = 0;
+				schedule();
+			}, 450);
+		}
+	});
+	introObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-intro'] });
 	canvas.addEventListener('webglcontextlost', contextLost);
 	selectFollowVehicle();
 	resize(false);
 	setTheme(theme, false);
 	schedule();
+	if (idleWindow.requestIdleCallback) {
+		detailWorkIsIdle = true;
+		detailWork = idleWindow.requestIdleCallback(attachArchitectureDetails, { timeout: 250 });
+	} else {
+		detailWork = window.setTimeout(attachArchitectureDetails, 0);
+	}
 
 	return {
 		setTheme,
@@ -783,12 +1133,18 @@ export function createCity(
 		dispose() {
 			disposed = true;
 			cancelAnimationFrame(frame);
+			clearTimeout(resumeTimer);
+			if (detailWork) {
+				if (detailWorkIsIdle) idleWindow.cancelIdleCallback?.(detailWork);
+				else clearTimeout(detailWork);
+			}
 			window.removeEventListener('pointermove', pointerMove);
 			window.removeEventListener('pointerdown', pointerDown);
 			window.removeEventListener('pointerup', pointerUp);
 			window.removeEventListener('pointercancel', pointerUp);
 			window.removeEventListener('pointerleave', pointerLeave);
 			resizeObserver?.disconnect();
+			introObserver.disconnect();
 			window.removeEventListener('resize', onResize);
 			document.removeEventListener('visibilitychange', schedule);
 			canvas.removeEventListener('webglcontextlost', contextLost);

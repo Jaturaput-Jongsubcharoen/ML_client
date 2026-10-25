@@ -15,12 +15,16 @@ for (const [width, height] of [
 		const canvas = page.locator('.city canvas');
 		await waitForApp(page);
 		await expect(canvas).toHaveAttribute('data-camera-mode', 'vehicle');
+		await expect(canvas).toHaveAttribute('data-architecture-detail', 'ready');
 		const snapshot = () => canvas.evaluate((node) => {
 			const d = (node as HTMLCanvasElement).dataset;
 			return {
 				vehicleX: Number(d.vehicleX), vehicleZ: Number(d.vehicleZ),
 				x: Number(d.vehicleScreenX), y: Number(d.vehicleScreenY),
 				pixels: Number(d.vehiclePixels), vehicles: Number(d.vehicleCount),
+				pedestrians: Number(d.pedestrianCount), buildings: Number(d.buildingCount),
+				buildingMasses: Number(d.buildingMassCount),
+				tier: d.performanceTier,
 				calls: Number(d.drawCalls), triangles: Number(d.triangles),
 				dpr: Number(d.pixelRatio), frames: Number(d.renderCount),
 				renderMs: Number(d.meanRenderMs)
@@ -32,6 +36,9 @@ for (const [width, height] of [
 		expect(initial.y).toBeLessThan(0.75);
 		expect(initial.pixels).toBeGreaterThan(18);
 		expect(initial.vehicles).toBeGreaterThanOrEqual(12);
+		expect(initial.pedestrians).toBe(initial.tier === 'low' ? 6 : width <= 640 ? 9 : width <= 1100 ? 14 : 18);
+		expect(initial.buildings).toBe(72);
+		expect(initial.buildingMasses).toBeGreaterThan(initial.buildings);
 		expect(initial.calls).toBeLessThanOrEqual(30);
 		expect(initial.triangles).toBeLessThan(60_000);
 		expect(initial.dpr).toBeLessThanOrEqual(width <= 640 ? 1 : width <= 1100 ? 1.1 : 1.25);
@@ -112,6 +119,8 @@ test('capability limits, hidden-tab suspension and reduced motion prevent wasted
 	await waitForApp(page);
 	await expect(canvas).toHaveAttribute('data-performance-tier', 'low');
 	await expect(canvas).toHaveAttribute('data-vehicle-count', '12');
+	await expect(canvas).toHaveAttribute('data-pedestrian-count', '6');
+	await expect(canvas).toHaveAttribute('data-pet-count', '0');
 	await expect(canvas).toHaveAttribute('data-pixel-ratio', '1');
 	const rate = await canvas.evaluate(async (node) => {
 		const canvas = node as HTMLCanvasElement;
