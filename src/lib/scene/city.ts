@@ -755,7 +755,10 @@ export function createCity(
 	window.addEventListener('pointercancel', pointerUp, { passive: true });
 	window.addEventListener('pointerleave', pointerLeave);
 	const onResize = () => resize();
-	window.addEventListener('resize', onResize, { passive: true });
+	// Observe the canvas itself: its box can change without a window resize (e.g. the intro scrollbar gutter).
+	const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize);
+	if (resizeObserver) resizeObserver.observe(canvas);
+	else window.addEventListener('resize', onResize, { passive: true });
 	document.addEventListener('visibilitychange', schedule);
 	canvas.addEventListener('webglcontextlost', contextLost);
 	selectFollowVehicle();
@@ -784,6 +787,7 @@ export function createCity(
 			window.removeEventListener('pointerup', pointerUp);
 			window.removeEventListener('pointercancel', pointerUp);
 			window.removeEventListener('pointerleave', pointerLeave);
+			resizeObserver?.disconnect();
 			window.removeEventListener('resize', onResize);
 			document.removeEventListener('visibilitychange', schedule);
 			canvas.removeEventListener('webglcontextlost', contextLost);
