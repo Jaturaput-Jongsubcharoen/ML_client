@@ -614,6 +614,7 @@ export function createCity(
 		renderCount++;
 		if (!cameraInitialized) {
 			canvas.dataset.initialCameraPitch = followCamera.pitch.toFixed(3);
+			canvas.dataset.initialCameraDistance = cameraDistance.toFixed(3);
 			canvas.dataset.initialVehicleDistance = camera.position.distanceTo(followCamera.target).toFixed(3);
 			cameraInitialized = true;
 			onFirstFrame?.();
