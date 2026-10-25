@@ -14,13 +14,13 @@ This frontend project is the React-based user interface for a machine learning a
 ## Project Overview
 
 The application was built to demonstrate how supervised machine learning can support road safety analysis. Users can interact with the app by choosing from several classification models such as Random Forest, KNN, SVM, Neural Networks, and Logistic Regression. The app then sends user-selected road, driver, and environmental conditions to the backend API and returns a binary prediction:
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/5c629ec8-7173-4035-bdac-a946c074a083" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/e08af2ba-1179-4b98-a3ea-7c2488889b93" />
 
 - 1 = Fatal collision
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/31b8470b-b2c9-45d6-8cad-397fd966cb7c" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/64cb26b3-1a44-441e-9673-633e2e61b184" />
 
 - 0 = Non-fatal collision
-<img width="1918" height="1080" alt="image" src="https://github.com/user-attachments/assets/3d3801ad-879f-4649-8890-7a5b5a088a89" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/680137a9-ed93-4fa0-a6df-2a140c7aada0" />
 
 
 ## Skills Demonstrated
